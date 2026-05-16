@@ -32,8 +32,18 @@ export function InfiniteCanvas() {
     };
   };
 
+  const dropTextSelection = () => {
+    if (typeof window === "undefined") return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body) {
+      active.blur();
+    }
+    window.getSelection()?.removeAllRanges();
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
+    dropTextSelection();
     clearSelection();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     panning.current = true;
@@ -65,6 +75,8 @@ export function InfiniteCanvas() {
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+    dropTextSelection();
     const { wx, wy } = screenToWorld(e.clientX, e.clientY);
     createNode(wx, wy, "card");
   };
@@ -92,7 +104,7 @@ export function InfiniteCanvas() {
       onPointerCancel={onPointerUp}
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
-      className="relative h-full w-full overflow-hidden bg-[#07080c] touch-none"
+      className="relative h-full w-full select-none overflow-hidden bg-[#07080c] touch-none"
       style={{ cursor: isPanning ? "grabbing" : "grab" }}
     >
       <CanvasGrid />

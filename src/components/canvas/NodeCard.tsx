@@ -7,15 +7,25 @@ import { cn } from "@/lib/cn";
 
 type Props = { node: CanvasNode };
 
+const isEditable = (el: EventTarget | null) => {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  return el.tagName === "INPUT" || el.tagName === "TEXTAREA";
+};
+
 export function NodeCard({ node }: Props) {
   const moveNode = useCanvasStore((s) => s.moveNode);
+  const updateNodeContent = useCanvasStore((s) => s.updateNodeContent);
   const select = useCanvasStore((s) => s.select);
   const viewport = useCanvasStore((s) => s.viewport);
   const isSelected = useCanvasStore(
     (s) => s.selection?.type === "node" && s.selection.id === node.id,
   );
-  const startPendingConnection = useCanvasStore((s) => s.startPendingConnection);
-  const updatePendingConnection = useCanvasStore((s) => s.updatePendingConnection);
+  const startPendingConnection = useCanvasStore(
+    (s) => s.startPendingConnection,
+  );
+  const updatePendingConnection = useCanvasStore(
+    (s) => s.updatePendingConnection,
+  );
   const endPendingConnection = useCanvasStore((s) => s.endPendingConnection);
 
   const [dragging, setDragging] = useState(false);
@@ -35,6 +45,7 @@ export function NodeCard({ node }: Props) {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     select({ type: "node", id: node.id });
+    if (isEditable(e.target)) return; // editing → don't start drag
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     const { wx, wy } = screenToWorld(e.clientX, e.clientY);
     dragOffset.current = { dx: wx - node.x, dy: wy - node.y };
@@ -48,7 +59,9 @@ export function NodeCard({ node }: Props) {
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    if (cardRef.current?.hasPointerCapture(e.pointerId)) {
+      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    }
     dragOffset.current = null;
     setDragging(false);
   };
@@ -67,8 +80,12 @@ export function NodeCard({ node }: Props) {
     const onUp = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
-      const targetId = el?.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId ?? null;
+      const el = document.elementFromPoint(
+        ev.clientX,
+        ev.clientY,
+      ) as HTMLElement | null;
+      const targetId =
+        el?.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId ?? null;
       endPendingConnection(targetId);
     };
 
@@ -103,14 +120,24 @@ export function NodeCard({ node }: Props) {
       }}
     >
       <div className="flex h-full flex-col gap-2 p-4">
-        {node.title && (
-          <h3 className="text-sm font-semibold tracking-tight text-white/90">
-            {node.title}
-          </h3>
-        )}
-        {node.body && (
-          <p className="text-xs leading-relaxed text-white/60">{node.body}</p>
-        )}
+        <input
+          value={node.title ?? ""}
+          onChange={(e) =>
+            updateNodeContent(node.id, { title: e.target.value })
+          }
+          placeholder="Untitled"
+          spellCheck={false}
+          className="w-full cursor-text select-text border-none bg-transparent text-sm font-semibold tracking-tight text-white/90 outline-none placeholder:text-white/30"
+        />
+        <textarea
+          value={node.body ?? ""}
+          onChange={(e) =>
+            updateNodeContent(node.id, { body: e.target.value })
+          }
+          placeholder="Add a note…"
+          spellCheck={false}
+          className="w-full flex-1 cursor-text select-text resize-none border-none bg-transparent text-xs leading-relaxed text-white/60 outline-none placeholder:text-white/25"
+        />
       </div>
 
       <div
