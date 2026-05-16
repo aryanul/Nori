@@ -1,0 +1,24 @@
+import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
+
+const WorkspaceSchema = new Schema(
+  {
+    title: { type: String, required: true, default: "Untitled workspace" },
+    ownerId: { type: String, default: null },
+    members: { type: [String], default: [] },
+    settings: {
+      theme: { type: String, default: "glass" },
+      background: { type: String, default: "gradient" },
+    },
+  },
+  { timestamps: true },
+);
+
+export type WorkspaceDoc = InferSchemaType<typeof WorkspaceSchema> & {
+  _id: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export const Workspace: Model<WorkspaceDoc> =
+  (mongoose.models.Workspace as Model<WorkspaceDoc>) ||
+  mongoose.model<WorkspaceDoc>("Workspace", WorkspaceSchema);
