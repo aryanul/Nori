@@ -5,8 +5,15 @@ import { useCanvasStore } from "@/store/canvas-store";
 import { CanvasGrid } from "./CanvasGrid";
 import { NodeCard } from "./NodeCard";
 import { ConnectionsLayer } from "./ConnectionsLayer";
+import type { PeerState } from "@/types/realtime";
+import { RemoteCursors } from "./RemoteCursors";
 
-export function InfiniteCanvas() {
+type Props = {
+  onCursorMove?: (worldX: number, worldY: number) => void;
+  peers?: PeerState[];
+};
+
+export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
   const viewport = useCanvasStore((s) => s.viewport);
   const panBy = useCanvasStore((s) => s.panBy);
   const zoomAt = useCanvasStore((s) => s.zoomAt);
@@ -52,6 +59,10 @@ export function InfiniteCanvas() {
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (onCursorMove) {
+      const { wx, wy } = screenToWorld(e.clientX, e.clientY);
+      onCursorMove(wx, wy);
+    }
     if (!panning.current || !lastPoint.current) return;
     const dx = e.clientX - lastPoint.current.x;
     const dy = e.clientY - lastPoint.current.y;
@@ -121,6 +132,7 @@ export function InfiniteCanvas() {
         {Object.values(nodes).map((node) => (
           <NodeCard key={node.id} node={node} />
         ))}
+        <RemoteCursors peers={peers} />
       </div>
     </div>
   );
