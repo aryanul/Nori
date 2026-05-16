@@ -54,7 +54,13 @@ const STATUS_META: Record<
     label: () => "Realtime offline",
     dotClass: "bg-red-400/80",
     tooltip:
-      "Couldn’t reach the signaling server. Edits stay local — check your network / browser console.",
+      "Couldn’t reach the sync server. Make sure `npm run hocuspocus` is running. Edits stay local until reconnect.",
+  },
+  unauthorized: {
+    label: () => "Sign-in required",
+    dotClass: "bg-red-400/80",
+    tooltip:
+      "Your sync session expired or you don’t have access to this workspace. Refresh the page or sign in again.",
   },
 };
 

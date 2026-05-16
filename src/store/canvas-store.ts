@@ -12,8 +12,6 @@ export type PendingConnection = {
   toY: number;
 } | null;
 
-export type SaveStatus = "idle" | "saving" | "saved" | "error";
-
 type CanvasState = {
   workspaceId: string | null;
   viewport: Viewport;
@@ -21,22 +19,18 @@ type CanvasState = {
   connections: Record<string, Connection>;
   selection: Selection;
   pendingConnection: PendingConnection;
-  saveStatus: SaveStatus;
-  version: number;
-  savedVersion: number;
 
   hydrate: (snapshot: {
     workspaceId: string;
     nodes: CanvasNode[];
     connections: Connection[];
   }) => void;
-  setSaveStatus: (status: SaveStatus) => void;
-  markSaved: (atVersion: number) => void;
-  getSnapshot: () => {
-    nodes: CanvasNode[];
-    connections: Connection[];
-    version: number;
-  };
+  replaceCanvasState: (
+    nodes: Record<string, CanvasNode>,
+    connections: Record<string, Connection>,
+  ) => void;
+  replaceNodes: (nodes: Record<string, CanvasNode>) => void;
+  replaceConnections: (connections: Record<string, Connection>) => void;
 
   setViewport: (v: Viewport) => void;
   panBy: (dx: number, dy: number) => void;
@@ -98,22 +92,9 @@ const seedNodes: CanvasNode[] = [
     body: "Spatial workspace primitive.",
     color: "#facc15",
   },
-  {
-    id: "n3",
-    kind: "card",
-    x: 820,
-    y: 60,
-    width: 260,
-    height: 160,
-    title: "Realtime soon",
-    body: "Yjs + Hocuspocus will sync this state across collaborators.",
-  },
 ];
 
-const seedConnections: Connection[] = [
-  { id: "c1", fromNodeId: "n1", toNodeId: "n2" },
-  { id: "c2", fromNodeId: "n2", toNodeId: "n3" },
-];
+const seedConnections: Connection[] = [];
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   workspaceId: null,
@@ -122,9 +103,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connections: Object.fromEntries(seedConnections.map((c) => [c.id, c])),
   selection: null,
   pendingConnection: null,
-  saveStatus: "idle",
-  version: 0,
-  savedVersion: 0,
 
   hydrate: ({ workspaceId, nodes, connections }) =>
     set({
@@ -134,24 +112,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selection: null,
       pendingConnection: null,
       viewport: INITIAL_VIEWPORT,
-      saveStatus: "idle",
-      version: 0,
-      savedVersion: 0,
     }),
 
-  setSaveStatus: (status) => set({ saveStatus: status }),
+  replaceCanvasState: (nodes, connections) =>
+    set({ nodes, connections }),
 
-  markSaved: (atVersion) =>
-    set({ saveStatus: "saved", savedVersion: atVersion }),
+  replaceNodes: (nodes) => set({ nodes }),
 
-  getSnapshot: () => {
-    const state = get();
-    return {
-      nodes: Object.values(state.nodes),
-      connections: Object.values(state.connections),
-      version: state.version,
-    };
-  },
+  replaceConnections: (connections) => set({ connections }),
 
   setViewport: (v) => set({ viewport: v }),
 
@@ -197,25 +165,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => ({
       nodes: { ...state.nodes, [id]: node },
       selection: { type: "node", id },
-      version: state.version + 1,
     }));
     return id;
   },
 
   addNode: (node) =>
-    set((state) => ({
-      nodes: { ...state.nodes, [node.id]: node },
-      version: state.version + 1,
-    })),
+    set((state) => ({ nodes: { ...state.nodes, [node.id]: node } })),
 
   moveNode: (id, x, y) =>
     set((state) => {
       const existing = state.nodes[id];
       if (!existing) return state;
-      return {
-        nodes: { ...state.nodes, [id]: { ...existing, x, y } },
-        version: state.version + 1,
-      };
+      return { nodes: { ...state.nodes, [id]: { ...existing, x, y } } };
     }),
 
   updateNodeContent: (id, patch) =>
@@ -226,10 +187,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (next.title === existing.title && next.body === existing.body) {
         return state;
       }
-      return {
-        nodes: { ...state.nodes, [id]: next },
-        version: state.version + 1,
-      };
+      return { nodes: { ...state.nodes, [id]: next } };
     }),
 
   removeNode: (id) =>
@@ -244,12 +202,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         state.selection?.type === "node" && state.selection.id === id
           ? null
           : state.selection;
-      return {
-        nodes: restNodes,
-        connections: restConnections,
-        selection,
-        version: state.version + 1,
-      };
+      return { nodes: restNodes, connections: restConnections, selection };
     }),
 
   addConnection: (fromNodeId, toNodeId) => {
@@ -264,7 +217,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ...state.connections,
         [id]: { id, fromNodeId, toNodeId },
       },
-      version: state.version + 1,
     }));
     return id;
   },
@@ -276,11 +228,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         state.selection?.type === "connection" && state.selection.id === id
           ? null
           : state.selection;
-      return {
-        connections: rest,
-        selection,
-        version: state.version + 1,
-      };
+      return { connections: rest, selection };
     }),
 
   select: (selection) => set({ selection }),

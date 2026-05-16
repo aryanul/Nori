@@ -1,11 +1,11 @@
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 import type { CanvasNode, Connection } from "@/types/canvas";
 
 export type RealtimeEntry = {
   workspaceId: string;
   doc: Y.Doc;
-  provider: WebrtcProvider;
+  provider: HocuspocusProvider;
   nodesMap: Y.Map<CanvasNode>;
   connectionsMap: Y.Map<Connection>;
   refCount: number;
@@ -16,7 +16,17 @@ const entries = new Map<string, RealtimeEntry>();
 export const LOCAL_ORIGIN = Symbol("nori:local");
 export const REMOTE_ORIGIN = Symbol("nori:remote");
 
-export function acquireProvider(workspaceId: string): RealtimeEntry {
+function resolveServerUrl(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_HOCUSPOCUS_URL) {
+    return process.env.NEXT_PUBLIC_HOCUSPOCUS_URL;
+  }
+  return "ws://localhost:1234";
+}
+
+export function acquireProvider(
+  workspaceId: string,
+  token: string,
+): RealtimeEntry {
   const existing = entries.get(workspaceId);
   if (existing) {
     existing.refCount += 1;
@@ -27,35 +37,29 @@ export function acquireProvider(workspaceId: string): RealtimeEntry {
   const nodesMap = doc.getMap<CanvasNode>("nodes");
   const connectionsMap = doc.getMap<Connection>("connections");
 
-  // Use y-webrtc's bundled signaling defaults (currently fly.dev + signaling.yjs.dev).
-  // The old Heroku endpoints were removed when Heroku killed free dynos.
-  const provider = new WebrtcProvider(`nori-ws-${workspaceId}`, doc);
+  const url = resolveServerUrl();
+  const provider = new HocuspocusProvider({
+    url,
+    name: workspaceId,
+    document: doc,
+    token,
+  });
 
   if (typeof window !== "undefined") {
-    // Diagnostics — visible in browser DevTools console.
-    console.log(
-      `[Nori realtime] provider created for workspace ${workspaceId}`,
-      { room: `nori-ws-${workspaceId}`, clientId: provider.awareness.clientID },
-    );
-    provider.on("peers", (event: {
-      added: string[];
-      removed: string[];
-      webrtcPeers: string[];
-      bcPeers: string[];
-    }) => {
-      console.log("[Nori realtime] peers", {
-        webrtc: event.webrtcPeers.length,
-        broadcastChannel: event.bcPeers.length,
-        added: event.added,
-        removed: event.removed,
-      });
+    console.log(`[Nori realtime] HocuspocusProvider created`, {
+      url,
+      workspaceId,
+      clientId: provider.awareness?.clientID,
     });
-    provider.on(
-      "status",
-      (event: { connected: boolean }) => {
-        console.log("[Nori realtime] signaling status", event);
-      },
-    );
+    provider.on("status", (event: { status: string }) => {
+      console.log("[Nori realtime] status", event.status);
+    });
+    provider.on("synced", (event: { state: boolean }) => {
+      console.log("[Nori realtime] synced", event.state);
+    });
+    provider.on("disconnect", () => {
+      console.log("[Nori realtime] disconnected");
+    });
   }
 
   const entry: RealtimeEntry = {
@@ -75,7 +79,6 @@ export function releaseProvider(workspaceId: string) {
   if (!entry) return;
   entry.refCount -= 1;
   if (entry.refCount <= 0) {
-    entry.provider.disconnect();
     entry.provider.destroy();
     entry.doc.destroy();
     entries.delete(workspaceId);

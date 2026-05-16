@@ -15,7 +15,12 @@ import type { PeerState, UserIdentity } from "@/types/realtime";
 
 type RemoteCursorPublisher = (worldX: number, worldY: number) => void;
 
-export type RealtimeStatus = "connecting" | "live" | "solo" | "offline";
+export type RealtimeStatus =
+  | "connecting"
+  | "live"
+  | "solo"
+  | "offline"
+  | "unauthorized";
 
 type UseRealtimeResult = {
   ready: boolean;
@@ -50,147 +55,187 @@ function ymapToObject<T>(map: Y.Map<T>): Record<string, T> {
   return out;
 }
 
+async function fetchRealtimeToken(
+  workspaceId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `/api/realtime-token?workspace=${encodeURIComponent(workspaceId)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) {
+      console.warn(
+        `[Nori realtime] token fetch failed: ${res.status} ${res.statusText}`,
+      );
+      return null;
+    }
+    const data = (await res.json()) as { token?: string };
+    return data.token ?? null;
+  } catch (err) {
+    console.warn("[Nori realtime] token fetch error:", err);
+    return null;
+  }
+}
+
 export function useRealtime(workspaceId: string | null): UseRealtimeResult {
   const [self, setSelf] = useState<UserIdentity | null>(null);
   const [peers, setPeers] = useState<PeerState[]>([]);
   const [ready, setReady] = useState(false);
   const [signalingConnected, setSignalingConnected] = useState(false);
   const [graceExpired, setGraceExpired] = useState(false);
+  const [authFailed, setAuthFailed] = useState(false);
   const entryRef = useRef<RealtimeEntry | null>(null);
   const applyingRemoteRef = useRef(false);
 
   useEffect(() => {
     if (!workspaceId) return;
+    setAuthFailed(false);
+
     const identity = getOrCreateUserIdentity();
     setSelf(identity);
 
-    const entry = acquireProvider(workspaceId);
-    entryRef.current = entry;
-    const { doc, provider, nodesMap, connectionsMap } = entry;
+    let cancelled = false;
+    let teardown: (() => void) | null = null;
+    const graceTimer = window.setTimeout(() => {
+      if (!cancelled) setGraceExpired(true);
+    }, 4000);
 
-    // 1. Seed Y.Maps from current Zustand state — only if empty
-    //    (so we don't clobber state already received from peers)
-    const currentState = useCanvasStore.getState();
-    if (nodesMap.size === 0 && connectionsMap.size === 0) {
-      doc.transact(() => {
-        for (const node of Object.values(currentState.nodes)) {
-          nodesMap.set(node.id, node);
-        }
-        for (const conn of Object.values(currentState.connections)) {
-          connectionsMap.set(conn.id, conn);
-        }
-      }, LOCAL_ORIGIN);
-    } else {
-      // 2. Y.Maps already populated (peer or previous mount) → pull into Zustand
-      applyingRemoteRef.current = true;
-      useCanvasStore.setState((state) => ({
-        nodes: ymapToObject<CanvasNode>(nodesMap),
-        connections: ymapToObject<Connection>(connectionsMap),
-        version: state.version + 1,
-      }));
-      applyingRemoteRef.current = false;
-    }
-
-    // 3. Y.Map → Zustand (remote changes)
-    const onNodesChange = (
-      _event: Y.YMapEvent<CanvasNode>,
-      transaction: Y.Transaction,
-    ) => {
-      if (transaction.origin === LOCAL_ORIGIN) return;
-      applyingRemoteRef.current = true;
-      useCanvasStore.setState((state) => ({
-        nodes: ymapToObject<CanvasNode>(nodesMap),
-        version: state.version + 1,
-      }));
-      applyingRemoteRef.current = false;
-    };
-    const onConnectionsChange = (
-      _event: Y.YMapEvent<Connection>,
-      transaction: Y.Transaction,
-    ) => {
-      if (transaction.origin === LOCAL_ORIGIN) return;
-      applyingRemoteRef.current = true;
-      useCanvasStore.setState((state) => ({
-        connections: ymapToObject<Connection>(connectionsMap),
-        version: state.version + 1,
-      }));
-      applyingRemoteRef.current = false;
-    };
-    nodesMap.observe(onNodesChange);
-    connectionsMap.observe(onConnectionsChange);
-
-    // 4. Zustand → Y.Map (local edits)
-    let lastNodes = useCanvasStore.getState().nodes;
-    let lastConnections = useCanvasStore.getState().connections;
-    const unsubStore = useCanvasStore.subscribe((state) => {
-      if (
-        state.nodes === lastNodes &&
-        state.connections === lastConnections
-      ) {
+    (async () => {
+      const token = await fetchRealtimeToken(workspaceId);
+      if (cancelled) return;
+      if (!token) {
+        setAuthFailed(true);
         return;
       }
-      const changedNodes = state.nodes !== lastNodes;
-      const changedConnections = state.connections !== lastConnections;
-      lastNodes = state.nodes;
-      lastConnections = state.connections;
-      if (applyingRemoteRef.current) return;
-      doc.transact(() => {
-        if (changedNodes) syncObjectToYMap(nodesMap, state.nodes);
-        if (changedConnections)
-          syncObjectToYMap(connectionsMap, state.connections);
-      }, LOCAL_ORIGIN);
-    });
 
-    // 5. Awareness — local identity + peer subscription
-    provider.awareness.setLocalState({
-      user: identity,
-      cursor: null,
-    });
+      const entry = acquireProvider(workspaceId, token);
+      entryRef.current = entry;
+      const { doc, provider, nodesMap, connectionsMap } = entry;
+      const awareness = provider.awareness;
+      if (!awareness) {
+        console.warn("[Nori realtime] provider awareness is null");
+        return;
+      }
 
-    const onAwarenessChange = () => {
-      const states = provider.awareness.getStates();
-      const list: PeerState[] = [];
-      states.forEach((value, clientId) => {
-        if (clientId === provider.awareness.clientID) return;
-        const v = value as {
-          user?: UserIdentity;
-          cursor?: { x: number; y: number } | null;
-        };
-        if (!v.user) return;
-        list.push({
-          clientId,
-          user: v.user,
-          cursor: v.cursor ?? null,
-        });
+      // 1. Seed Y.Maps from current Zustand state — only if empty
+      const currentState = useCanvasStore.getState();
+      if (nodesMap.size === 0 && connectionsMap.size === 0) {
+        doc.transact(() => {
+          for (const node of Object.values(currentState.nodes)) {
+            nodesMap.set(node.id, node);
+          }
+          for (const conn of Object.values(currentState.connections)) {
+            connectionsMap.set(conn.id, conn);
+          }
+        }, LOCAL_ORIGIN);
+      } else {
+        applyingRemoteRef.current = true;
+        useCanvasStore
+          .getState()
+          .replaceCanvasState(
+            ymapToObject<CanvasNode>(nodesMap),
+            ymapToObject<Connection>(connectionsMap),
+          );
+        applyingRemoteRef.current = false;
+      }
+
+      const onNodesChange = (
+        _event: Y.YMapEvent<CanvasNode>,
+        transaction: Y.Transaction,
+      ) => {
+        if (transaction.origin === LOCAL_ORIGIN) return;
+        applyingRemoteRef.current = true;
+        useCanvasStore
+          .getState()
+          .replaceNodes(ymapToObject<CanvasNode>(nodesMap));
+        applyingRemoteRef.current = false;
+      };
+      const onConnectionsChange = (
+        _event: Y.YMapEvent<Connection>,
+        transaction: Y.Transaction,
+      ) => {
+        if (transaction.origin === LOCAL_ORIGIN) return;
+        applyingRemoteRef.current = true;
+        useCanvasStore
+          .getState()
+          .replaceConnections(ymapToObject<Connection>(connectionsMap));
+        applyingRemoteRef.current = false;
+      };
+      nodesMap.observe(onNodesChange);
+      connectionsMap.observe(onConnectionsChange);
+
+      let lastNodes = useCanvasStore.getState().nodes;
+      let lastConnections = useCanvasStore.getState().connections;
+      const unsubStore = useCanvasStore.subscribe((state) => {
+        if (
+          state.nodes === lastNodes &&
+          state.connections === lastConnections
+        ) {
+          return;
+        }
+        const changedNodes = state.nodes !== lastNodes;
+        const changedConnections = state.connections !== lastConnections;
+        lastNodes = state.nodes;
+        lastConnections = state.connections;
+        if (applyingRemoteRef.current) return;
+        doc.transact(() => {
+          if (changedNodes) syncObjectToYMap(nodesMap, state.nodes);
+          if (changedConnections)
+            syncObjectToYMap(connectionsMap, state.connections);
+        }, LOCAL_ORIGIN);
       });
-      setPeers(list);
-    };
-    provider.awareness.on("change", onAwarenessChange);
-    onAwarenessChange();
 
-    // 6. Signaling status — flips to true when at least one signaling
-    //    connection is open; flips back when all close.
-    const onStatus = (e: { connected: boolean }) => {
-      setSignalingConnected(e.connected);
-    };
-    provider.on("status", onStatus);
+      awareness.setLocalState({ user: identity, cursor: null });
 
-    // Grace period: give signaling a few seconds to connect before we
-    // declare "offline" in the UI.
-    const graceTimer = window.setTimeout(() => setGraceExpired(true), 4000);
+      const onAwarenessChange = () => {
+        const states = awareness.getStates();
+        const list: PeerState[] = [];
+        states.forEach((value, clientId) => {
+          if (clientId === awareness.clientID) return;
+          const v = value as {
+            user?: UserIdentity;
+            cursor?: { x: number; y: number } | null;
+          };
+          if (!v.user) return;
+          list.push({ clientId, user: v.user, cursor: v.cursor ?? null });
+        });
+        setPeers(list);
+      };
+      awareness.on("change", onAwarenessChange);
+      onAwarenessChange();
 
-    setReady(true);
+      const onStatus = (e: { status: string }) => {
+        setSignalingConnected(e.status === "connected");
+      };
+      provider.on("status", onStatus);
+
+      // If the server rejects the connection (e.g. expired/invalid token),
+      // surface it as unauthorized so the UI shows an actionable state.
+      const onAuthFailure = () => {
+        console.warn("[Nori realtime] server rejected our token");
+        setAuthFailed(true);
+      };
+      provider.on("authenticationFailed", onAuthFailure);
+
+      setReady(true);
+
+      teardown = () => {
+        nodesMap.unobserve(onNodesChange);
+        connectionsMap.unobserve(onConnectionsChange);
+        awareness.off("change", onAwarenessChange);
+        provider.off("status", onStatus);
+        provider.off("authenticationFailed", onAuthFailure);
+        awareness.setLocalState(null);
+        unsubStore();
+        entryRef.current = null;
+        releaseProvider(workspaceId);
+      };
+    })();
 
     return () => {
+      cancelled = true;
       window.clearTimeout(graceTimer);
-      nodesMap.unobserve(onNodesChange);
-      connectionsMap.unobserve(onConnectionsChange);
-      provider.awareness.off("change", onAwarenessChange);
-      provider.off("status", onStatus);
-      provider.awareness.setLocalState(null);
-      unsubStore();
-      entryRef.current = null;
-      releaseProvider(workspaceId);
+      if (teardown) teardown();
       setReady(false);
       setPeers([]);
       setSignalingConnected(false);
@@ -200,7 +245,7 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
 
   const publishCursor: RemoteCursorPublisher = (worldX, worldY) => {
     const entry = entryRef.current;
-    if (!entry) return;
+    if (!entry || !entry.provider.awareness) return;
     entry.provider.awareness.setLocalStateField("cursor", {
       x: worldX,
       y: worldY,
@@ -209,13 +254,15 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
 
   const status: RealtimeStatus = !workspaceId
     ? "offline"
-    : peers.length > 0
-      ? "live"
-      : !graceExpired
-        ? "connecting"
-        : signalingConnected
-          ? "solo"
-          : "offline";
+    : authFailed
+      ? "unauthorized"
+      : peers.length > 0
+        ? "live"
+        : !graceExpired
+          ? "connecting"
+          : signalingConnected
+            ? "solo"
+            : "offline";
 
   return { ready, self, peers, publishCursor, status };
 }

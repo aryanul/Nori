@@ -3,8 +3,13 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 const WorkspaceSchema = new Schema(
   {
     title: { type: String, required: true, default: "Untitled workspace" },
-    ownerId: { type: String, default: null },
-    members: { type: [String], default: [] },
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    members: { type: [Schema.Types.ObjectId], default: [], index: true },
+    inviteToken: { type: String, default: null, index: true },
     settings: {
       theme: { type: String, default: "glass" },
       background: { type: String, default: "gradient" },
