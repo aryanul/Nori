@@ -1,5 +1,6 @@
 # Hocuspocus sync server — runs `tsx server/hocuspocus.ts` in production.
-# Built for Fly.io but works on any container host.
+# Designed for Render (web service, docker runtime), but works on any host
+# that injects PORT.
 
 FROM node:20-alpine AS base
 WORKDIR /app
@@ -16,8 +17,7 @@ COPY server ./server
 COPY src ./src
 
 ENV NODE_ENV=production
-# Fly injects PORT; map it to HOCUSPOCUS_PORT inside the container.
-ENV HOCUSPOCUS_PORT=8080
-EXPOSE 8080
+# Render assigns PORT at runtime; the server reads $PORT first.
+EXPOSE 10000
 
 CMD ["npx", "tsx", "server/hocuspocus.ts"]

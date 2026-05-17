@@ -15,7 +15,10 @@ import {
 } from "@/lib/workspace-access";
 import type { CanvasNode, Connection, NodeThread } from "@/types/canvas";
 
-const PORT = Number(process.env.HOCUSPOCUS_PORT ?? 1234);
+// Render injects PORT; Fly used HOCUSPOCUS_PORT; locally we default to 1234.
+const PORT = Number(
+  process.env.PORT ?? process.env.HOCUSPOCUS_PORT ?? 1234,
+);
 
 function isValidId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id);

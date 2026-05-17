@@ -1,0 +1,25 @@
+# Render blueprint for the Hocuspocus sync server.
+# See https://render.com/docs/blueprint-spec for the full spec.
+#
+# To deploy: connect this repo via Render → Blueprints → New Blueprint Instance.
+# Every push to `main` then auto-redeploys this service.
+
+services:
+  - type: web
+    name: nori-hocuspocus
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    healthCheckPath: /
+    # Pushes to main trigger redeploys only when these paths change. Frontend-
+    # only changes (src/app, src/components, etc.) don't waste a Render build.
+    autoDeployTrigger: checksPass
+    envVars:
+      # Secrets — set in the Render dashboard after the first import.
+      # `sync: false` prevents Render from rolling them out automatically and
+      # keeps them out of git.
+      - key: MONGODB_URI
+        sync: false
+      - key: AUTH_SECRET
+        sync: false

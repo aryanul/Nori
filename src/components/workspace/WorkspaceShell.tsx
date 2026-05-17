@@ -14,6 +14,7 @@ import { CommandPalette } from "@/components/canvas/CommandPalette";
 import { ContextMenu } from "@/components/canvas/ContextMenu";
 import { WorkspaceHotkeys } from "@/components/workspace/WorkspaceHotkeys";
 import { FirstRunTutorial } from "@/components/workspace/FirstRunTutorial";
+import { SyncOverlay } from "@/components/workspace/SyncOverlay";
 import type { WorkspaceSnapshot } from "@/lib/actions/workspace";
 
 type Props = {
@@ -101,6 +102,11 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
 
       {/* First-run tutorial — only shown on first ever workspace visit */}
       <FirstRunTutorial />
+
+      {/* Full-screen blocker while the sync server is unreachable. Render's
+          free tier cold-starts the WS container; this keeps users from
+          editing in a half-connected state. */}
+      <SyncOverlay status={status} />
     </main>
   );
 }

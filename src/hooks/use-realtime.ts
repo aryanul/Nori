@@ -99,9 +99,12 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
 
     let cancelled = false;
     let teardown: (() => void) | null = null;
+    // Generous grace on first load: Render's free tier cold-starts the
+    // Hocuspocus container after idle (~30s). We don't want to flash the
+    // "offline" banner during a normal wake-up.
     const graceTimer = window.setTimeout(() => {
       if (!cancelled) setGraceExpired(true);
-    }, 4000);
+    }, 45000);
 
     (async () => {
       const token = await fetchRealtimeToken(workspaceId);
@@ -297,16 +300,19 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
   const undo = () => undoManagerRef.current?.undo();
   const redo = () => undoManagerRef.current?.redo();
 
+  // Once the WS is connected, drop to "solo"/"live" immediately. While we
+  // wait, stay in "connecting" through the grace window so the overlay
+  // shows a friendly "waking up" message instead of an error.
   const status: RealtimeStatus = !workspaceId
     ? "offline"
     : authFailed
       ? "unauthorized"
       : peers.length > 0
         ? "live"
-        : !graceExpired
-          ? "connecting"
-          : signalingConnected
-            ? "solo"
+        : signalingConnected
+          ? "solo"
+          : !graceExpired
+            ? "connecting"
             : "offline";
 
   return { ready, self, peers, publishCursor, status, undo, redo };
