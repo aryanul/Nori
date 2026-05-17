@@ -101,6 +101,15 @@ export function ContextMenu({ workspaceTitle, worldWrapperRef }: Props) {
     close();
   };
 
+  const addComment = () => {
+    const state = useCanvasStore.getState();
+    const target =
+      state.selectedNodeIds[0] ?? Object.keys(state.nodes)[0] ?? null;
+    if (!target) return;
+    state.openThreadFor(target);
+    close();
+  };
+
   return createPortal(
     <>
       <AnimatePresence>
@@ -125,10 +134,14 @@ export function ContextMenu({ workspaceTitle, worldWrapperRef }: Props) {
                 top: clampToViewport(menu.screenY, 160, "y"),
               }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="fixed z-[110] w-56 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0b10]/97 p-1 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+              className="fixed z-[110] w-56 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-97)] p-1 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.55)] backdrop-blur-xl"
             >
               {menu.variant === "selection" ? (
                 <>
+                  <MenuItem onClick={addComment}>
+                    <CommentIcon />
+                    {readOnly ? "Open comments" : "Add comment"}
+                  </MenuItem>
                   <MenuItem onClick={() => runExport("selection")} disabled={busy}>
                     <DownloadIcon />
                     Export selection as PNG
@@ -181,10 +194,10 @@ function MenuItem({
       className={cn(
         "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
         disabled
-          ? "cursor-not-allowed text-white/30"
+          ? "cursor-not-allowed text-[var(--ink-4)]"
           : tone === "danger"
-            ? "text-red-200/90 hover:bg-red-400/10"
-            : "text-white/75 hover:bg-white/[0.06] hover:text-white",
+            ? "text-red-700 hover:bg-red-400/10 dark:text-red-200/90"
+            : "text-[var(--ink-2)] hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]",
       )}
     >
       {children}
@@ -208,6 +221,24 @@ function DownloadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

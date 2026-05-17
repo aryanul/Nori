@@ -32,7 +32,7 @@ export function NodeInspector() {
   return (
     <div
       data-export-skip
-      className="pointer-events-auto absolute flex items-center gap-1 rounded-xl border border-white/[0.09] bg-[#0a0b10]/95 px-2 py-1.5 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]"
+      className="pointer-events-auto absolute flex items-center gap-1 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-95)] px-2 py-1.5 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)]"
       style={{
         left: node.x,
         top: node.y + node.height + 10,
@@ -54,15 +54,15 @@ export function NodeInspector() {
               e.stopPropagation();
               setNodeColor(node.id, s.value);
             }}
-            className="relative flex size-5 items-center justify-center rounded-full border border-white/15 transition-transform hover:scale-110"
+            className="relative flex size-5 items-center justify-center rounded-full border border-[var(--border-default)] transition-transform hover:scale-110"
             style={{
               background:
                 s.value ??
-                "repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 2px, transparent 2px 5px)",
+                "repeating-linear-gradient(45deg, var(--border-default) 0 2px, transparent 2px 5px)",
             }}
           >
             {isActive && (
-              <span className="absolute inset-0 rounded-full ring-2 ring-white/85" />
+              <span className="absolute inset-0 rounded-full ring-2 ring-[var(--ink-1)]" />
             )}
           </button>
         );

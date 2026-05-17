@@ -11,12 +11,17 @@ import clientPromise from "@/lib/mongodb-client";
 import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
+import { ThreadModel } from "@/lib/models/thread";
 import {
   userCanAccessWorkspace,
   userCanEditWorkspace,
   userOwnsWorkspace,
 } from "@/lib/workspace-access";
-import type { CanvasNode, Connection } from "@/types/canvas";
+import type {
+  CanvasNode,
+  Connection,
+  NodeThread,
+} from "@/types/canvas";
 
 export type WorkspaceMember = {
   id: string;
@@ -31,6 +36,7 @@ export type WorkspaceSnapshot = {
   title: string;
   nodes: CanvasNode[];
   connections: Connection[];
+  threads: NodeThread[];
   isOwner: boolean;
   canEdit: boolean;
   inviteToken: string | null;
@@ -140,9 +146,10 @@ export async function getWorkspace(
     }
   }
 
-  const [nodes, connections] = await Promise.all([
+  const [nodes, connections, threads] = await Promise.all([
     NodeModel.find({ workspaceId: ws._id }).lean(),
     ConnectionModel.find({ workspaceId: ws._id }).lean(),
+    ThreadModel.find({ workspaceId: ws._id }).lean(),
   ]);
 
   return {
@@ -169,6 +176,21 @@ export async function getWorkspace(
       id: c._id,
       fromNodeId: c.fromNodeId,
       toNodeId: c.toNodeId,
+    })),
+    threads: threads.map((t) => ({
+      id: t._id,
+      nodeId: t.nodeId,
+      messages: (t.messages ?? []).map((m) => ({
+        id: m.id,
+        authorId: m.authorId,
+        authorName: m.authorName ?? "",
+        authorColor: m.authorColor ?? "#7ad7ff",
+        body: m.body,
+        createdAt: m.createdAt,
+      })),
+      resolved: t.resolved ?? false,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
     })),
     isOwner,
     canEdit,
@@ -234,6 +256,7 @@ export async function saveWorkspace(
   await Promise.all([
     NodeModel.deleteMany({ workspaceId }),
     ConnectionModel.deleteMany({ workspaceId }),
+    ThreadModel.deleteMany({ workspaceId }),
   ]);
 
   if (nodes.length > 0) {
@@ -495,6 +518,7 @@ export async function deleteWorkspace(
   await Promise.all([
     NodeModel.deleteMany({ workspaceId: ws._id }),
     ConnectionModel.deleteMany({ workspaceId: ws._id }),
+    ThreadModel.deleteMany({ workspaceId: ws._id }),
     Workspace.deleteOne({ _id: ws._id }),
   ]);
 

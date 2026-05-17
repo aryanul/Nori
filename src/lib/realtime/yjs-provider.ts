@@ -1,6 +1,10 @@
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
-import type { CanvasNode, Connection } from "@/types/canvas";
+import type {
+  CanvasNode,
+  Connection,
+  NodeThread,
+} from "@/types/canvas";
 
 export type RealtimeEntry = {
   workspaceId: string;
@@ -8,6 +12,7 @@ export type RealtimeEntry = {
   provider: HocuspocusProvider;
   nodesMap: Y.Map<CanvasNode>;
   connectionsMap: Y.Map<Connection>;
+  threadsMap: Y.Map<NodeThread>;
   refCount: number;
 };
 
@@ -36,6 +41,7 @@ export function acquireProvider(
   const doc = new Y.Doc();
   const nodesMap = doc.getMap<CanvasNode>("nodes");
   const connectionsMap = doc.getMap<Connection>("connections");
+  const threadsMap = doc.getMap<NodeThread>("threads");
 
   const url = resolveServerUrl();
   const provider = new HocuspocusProvider({
@@ -68,6 +74,7 @@ export function acquireProvider(
     provider,
     nodesMap,
     connectionsMap,
+    threadsMap,
     refCount: 1,
   };
   entries.set(workspaceId, entry);

@@ -27,7 +27,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=localStorage.getItem('nori:theme')||'system';var r=p==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.setAttribute('data-theme',r);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="relative h-full overflow-hidden">{children}</body>
     </html>
   );

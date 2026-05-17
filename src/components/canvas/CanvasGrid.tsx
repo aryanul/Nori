@@ -2,7 +2,7 @@
 
 import { useCanvasStore } from "@/store/canvas-store";
 
-const BASE_DOT_SIZE = 1.5;
+const BASE_DOT_SIZE = 1.6;
 const BASE_SPACING = 32;
 
 export function CanvasGrid() {
@@ -15,7 +15,7 @@ export function CanvasGrid() {
       aria-hidden
       className="pointer-events-none absolute inset-0"
       style={{
-        backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.13) ${dot}px, transparent ${dot}px)`,
+        backgroundImage: `radial-gradient(circle, var(--grid-dot) ${dot}px, transparent ${dot}px)`,
         backgroundSize: `${spacing}px ${spacing}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
       }}

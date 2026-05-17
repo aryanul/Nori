@@ -55,6 +55,7 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
       <InfiniteCanvas
         onCursorMove={publishCursor}
         peers={peers}
+        self={self}
         worldRef={worldRef}
       />
 

@@ -56,7 +56,7 @@ export function EditableTitle({ workspaceId, initialTitle, editable }: Props) {
 
   if (!editable) {
     return (
-      <span className="max-w-[200px] truncate text-white/60">{title}</span>
+      <span className="max-w-[200px] truncate text-[var(--ink-2)]">{title}</span>
     );
   }
 
@@ -70,7 +70,7 @@ export function EditableTitle({ workspaceId, initialTitle, editable }: Props) {
         }}
         title="Rename workspace"
         className={cn(
-          "max-w-[200px] truncate text-left text-white/60 transition-colors hover:text-white",
+          "max-w-[200px] truncate text-left text-[var(--ink-2)] transition-colors hover:text-[var(--ink-1)]",
           pending && "opacity-70",
         )}
       >
@@ -96,7 +96,7 @@ export function EditableTitle({ workspaceId, initialTitle, editable }: Props) {
       }}
       maxLength={80}
       spellCheck={false}
-      className="w-[220px] border-b border-white/30 bg-transparent text-white outline-none placeholder:text-white/30"
+      className="w-[220px] border-b border-[var(--border-default)] bg-transparent text-[var(--ink-1)] outline-none placeholder:text-[var(--ink-4)]"
     />
   );
 }

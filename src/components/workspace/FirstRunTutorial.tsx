@@ -66,7 +66,7 @@ function buildSlides(mod: string): Slide[] {
           {["V", "C", "S", "F", "I", "L"].map((k) => (
             <kbd
               key={k}
-              className="rounded-md border border-white/15 bg-white/[0.04] px-2 py-1.5 font-mono text-xs text-white/85"
+              className="rounded-md border border-[var(--border-default)] bg-[var(--pane-2)] px-2 py-1.5 font-mono text-xs text-[var(--ink-1)]"
             >
               {k}
             </kbd>
@@ -104,14 +104,14 @@ function buildSlides(mod: string): Slide[] {
       kbd: [mod, "K"],
       illustration: (
         <div className="flex items-center justify-center gap-1.5 py-4">
-          <kbd className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 font-mono text-xs text-white/85">
+          <kbd className="rounded-md border border-[var(--border-default)] bg-[var(--pane-2)] px-2.5 py-1.5 font-mono text-xs text-[var(--ink-1)]">
             {mod}
           </kbd>
-          <kbd className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 font-mono text-xs text-white/85">
+          <kbd className="rounded-md border border-[var(--border-default)] bg-[var(--pane-2)] px-2.5 py-1.5 font-mono text-xs text-[var(--ink-1)]">
             K
           </kbd>
-          <span className="px-1 text-white/35">·</span>
-          <kbd className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 font-mono text-xs text-white/85">
+          <span className="px-1 text-[var(--ink-4)]">·</span>
+          <kbd className="rounded-md border border-[var(--border-default)] bg-[var(--pane-2)] px-2.5 py-1.5 font-mono text-xs text-[var(--ink-1)]">
             ?
           </kbd>
         </div>
@@ -167,36 +167,36 @@ export function FirstRunTutorial() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0b10]/97 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-97)] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] backdrop-blur-xl"
           >
-            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent" />
 
-            <div className="border-b border-white/[0.06] bg-gradient-to-b from-white/[0.025] to-transparent px-6 pt-6 pb-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
+            <div className="border-b border-[var(--border-faint)] bg-gradient-to-b from-[var(--pane-1)] to-transparent px-6 pt-6 pb-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--ink-4)]">
                 Welcome to Nori
               </p>
             </div>
 
             <div className="px-6 pb-2 pt-5">
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.015]">
+              <div className="rounded-xl border border-[var(--border-faint)] bg-[var(--pane-1)]">
                 {slide.illustration}
               </div>
-              <h2 className="mt-5 text-xl font-medium tracking-tight text-white">
+              <h2 className="mt-5 text-xl font-medium tracking-tight text-[var(--ink-1)]">
                 {slide.title}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-white/55">
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
                 {slide.body}
               </p>
             </div>
 
-            <div className="flex items-center justify-between border-t border-white/[0.06] px-6 py-3.5">
+            <div className="flex items-center justify-between border-t border-[var(--border-faint)] px-6 py-3.5">
               <div className="flex items-center gap-1.5">
                 {slides.map((_, i) => (
                   <span
                     key={i}
                     className={cn(
                       "h-1 rounded-full transition-all",
-                      i === idx ? "w-5 bg-white/80" : "w-1.5 bg-white/20",
+                      i === idx ? "w-5 bg-[var(--ink-1)]" : "w-1.5 bg-[var(--ink-4)]",
                     )}
                   />
                 ))}
@@ -206,7 +206,7 @@ export function FirstRunTutorial() {
                   <button
                     type="button"
                     onClick={() => setIdx(idx - 1)}
-                    className="rounded-lg px-3 py-1.5 text-xs text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
+                    className="rounded-lg px-3 py-1.5 text-xs text-[var(--ink-3)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
                   >
                     Back
                   </button>
@@ -215,7 +215,7 @@ export function FirstRunTutorial() {
                   <button
                     type="button"
                     onClick={dismiss}
-                    className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-3.5 py-1.5 text-xs font-medium text-sky-100 transition-colors hover:bg-sky-400/20"
+                    className="rounded-lg border border-sky-300 bg-sky-100 px-3.5 py-1.5 text-xs font-medium text-sky-900 transition-colors hover:bg-sky-200 hover:border-sky-400 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-100 dark:hover:bg-sky-400/20"
                   >
                     Got it
                   </button>
@@ -223,7 +223,7 @@ export function FirstRunTutorial() {
                   <button
                     type="button"
                     onClick={() => setIdx(idx + 1)}
-                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-white/85 transition-colors hover:bg-white/[0.08]"
+                    className="rounded-lg border border-[var(--border-default)] bg-[var(--pane-2)] px-3.5 py-1.5 text-xs font-medium text-[var(--ink-1)] transition-colors hover:bg-[var(--pane-3)]"
                   >
                     Next
                   </button>
@@ -234,7 +234,7 @@ export function FirstRunTutorial() {
             <button
               type="button"
               onClick={dismiss}
-              className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-md text-white/35 transition-colors hover:bg-white/[0.06] hover:text-white"
+              className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-md text-[var(--ink-4)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
               aria-label="Skip tutorial"
             >
               <svg

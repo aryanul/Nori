@@ -137,7 +137,7 @@ export function ToolPalette() {
   const setActiveTool = useCanvasStore((s) => s.setActiveTool);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/[0.09] bg-[#0a0b10]/90 p-1.5 backdrop-blur-xl shadow-[0_18px_50px_-15px_rgba(0,0,0,0.6)]">
+    <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-90)] p-1.5 backdrop-blur-xl shadow-[0_18px_50px_-15px_rgba(0,0,0,0.45)]">
       {TOOLS.map((t) => {
         const active = activeTool === t.id;
         return (
@@ -149,16 +149,16 @@ export function ToolPalette() {
             className={cn(
               "group relative flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] transition-colors",
               active
-                ? "bg-[#7ad7ff]/[0.12] text-[#bde8ff] shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
-                : "text-white/55 hover:bg-white/[0.05] hover:text-white/85",
+                ? "bg-sky-100 text-sky-900 shadow-[inset_0_0_0_1px_rgb(125,211,252)] dark:bg-[#7ad7ff]/[0.14] dark:text-[var(--ink-1)] dark:shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
+                : "text-[var(--ink-3)] hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]",
             )}
           >
             {t.icon}
             <span>{t.label}</span>
             <span
               className={cn(
-                "ml-1 rounded-[5px] border border-white/10 px-1 py-[1px] font-mono text-[9px] leading-none",
-                active ? "border-[#7ad7ff]/30 text-[#bde8ff]/80" : "text-white/40",
+                "ml-1 rounded-[5px] border border-[var(--border-faint)] px-1 py-[1px] font-mono text-[9px] leading-none",
+                active ? "border-[#7ad7ff]/30 text-[var(--ink-2)]" : "text-[var(--ink-4)]",
               )}
             >
               {t.shortcut}

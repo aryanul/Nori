@@ -21,7 +21,7 @@ export function ShareButton({ workspaceId, inviteToken, viewToken }: Props) {
           e.stopPropagation();
           setOpen(true);
         }}
-        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-xl border border-[#7ad7ff]/35 bg-[#7ad7ff]/[0.07] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-[#bde8ff] backdrop-blur-xl transition-colors hover:border-[#7ad7ff]/55 hover:bg-[#7ad7ff]/[0.12]"
+        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-xl border border-sky-300 bg-sky-100 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-sky-900 backdrop-blur-xl transition-colors hover:bg-sky-200 hover:border-sky-400 dark:border-[#7ad7ff]/45 dark:bg-[#7ad7ff]/[0.10] dark:text-[#bde8ff] dark:hover:border-[#7ad7ff]/65 dark:hover:bg-[#7ad7ff]/[0.16]"
       >
         <svg
           viewBox="0 0 24 24"

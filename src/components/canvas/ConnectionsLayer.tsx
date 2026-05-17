@@ -136,7 +136,7 @@ export function ConnectionsLayer() {
 
   return (
     <svg
-      className="pointer-events-none absolute"
+      className="pointer-events-none absolute text-[var(--ink-2)]"
       style={{
         left: -WORLD / 2,
         top: -WORLD / 2,
@@ -157,7 +157,7 @@ export function ConnectionsLayer() {
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(255,255,255,0.85)" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
         </marker>
         <marker
           id="nori-arrow-selected"
@@ -223,9 +223,7 @@ export function ConnectionsLayer() {
               d={d}
               fill="none"
               stroke={
-                isSelected
-                  ? "rgba(122, 215, 255, 0.98)"
-                  : "rgba(255, 255, 255, 0.72)"
+                isSelected ? "rgba(122, 215, 255, 0.98)" : "currentColor"
               }
               strokeWidth={isSelected ? 2.5 : 1.6}
               vectorEffect="non-scaling-stroke"

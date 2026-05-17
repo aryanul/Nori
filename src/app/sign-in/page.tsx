@@ -20,10 +20,10 @@ export default async function SignInPage({ searchParams }: PageProps) {
     >
       <CredentialsForm redirectTo={redirectTo} />
 
-      <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.25em] text-white/25">
-        <span className="h-px flex-1 bg-white/10" />
+      <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.25em] text-[var(--ink-4)]">
+        <span className="h-px flex-1 bg-[var(--border-soft)]" />
         or
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-[var(--border-soft)]" />
       </div>
 
       <OAuthButtons redirectTo={redirectTo} />

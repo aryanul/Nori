@@ -112,7 +112,7 @@ export function WorkspaceSettingsMenu({
           setMenuOpen((o) => !o);
         }}
         title="Workspace settings"
-        className="pointer-events-auto flex size-7 items-center justify-center rounded-lg border border-white/[0.09] text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
+        className="pointer-events-auto flex size-7 items-center justify-center rounded-lg border border-[var(--border-soft)] text-[var(--ink-3)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
       >
         <svg
           width="13"
@@ -138,13 +138,13 @@ export function WorkspaceSettingsMenu({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14, ease: "easeOut" }}
-            className="pointer-events-auto absolute left-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0b10]/95 p-1 backdrop-blur-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)]"
+            className="pointer-events-auto absolute left-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-95)] p-1 backdrop-blur-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.45)]"
           >
-            <div className="border-b border-white/[0.06] px-2.5 py-2">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">
+            <div className="border-b border-[var(--border-faint)] px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--ink-4)]">
                 Workspace
               </p>
-              <p className="mt-0.5 truncate text-xs font-medium text-white/85">
+              <p className="mt-0.5 truncate text-xs font-medium text-[var(--ink-1)]">
                 {workspaceTitle || "Untitled"}
               </p>
             </div>
@@ -169,7 +169,7 @@ export function WorkspaceSettingsMenu({
               </MenuItem>
             )}
             {!isOwner && (
-              <div className="px-2.5 py-2 text-[10px] text-white/40">
+              <div className="px-2.5 py-2 text-[10px] text-[var(--ink-4)]">
                 Only the owner can delete this workspace.
               </div>
             )}
@@ -197,17 +197,17 @@ export function WorkspaceSettingsMenu({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.98 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-400/20 bg-[#0c0d12]/95 p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+                  className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-400/30 bg-[var(--surface-95)] p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] backdrop-blur-xl"
                 >
                   <header className="space-y-2">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-red-300/70">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-red-800 dark:text-red-300/70">
                       Permanent action
                     </p>
-                    <h2 className="text-base font-medium tracking-tight text-white">
+                    <h2 className="text-base font-medium tracking-tight text-[var(--ink-1)]">
                       Delete this workspace?
                     </h2>
-                    <p className="text-xs leading-relaxed text-white/55">
-                      <span className="text-white/80">{workspaceTitle || "Untitled"}</span>{" "}
+                    <p className="text-xs leading-relaxed text-[var(--ink-3)]">
+                      <span className="text-[var(--ink-1)]">{workspaceTitle || "Untitled"}</span>{" "}
                       and all its nodes, connections and members will be permanently removed.
                       This can’t be undone.
                     </p>
@@ -217,7 +217,7 @@ export function WorkspaceSettingsMenu({
                     <button
                       type="button"
                       onClick={() => setConfirmOpen(false)}
-                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
+                      className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--ink-2)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
                     >
                       Cancel
                     </button>
@@ -226,7 +226,7 @@ export function WorkspaceSettingsMenu({
                       disabled={pending}
                       onClick={onConfirmDelete}
                       className={cn(
-                        "rounded-lg border border-red-400/40 bg-red-400/15 px-3 py-1.5 text-xs font-medium text-red-100 transition-colors hover:bg-red-400/25",
+                        "rounded-lg border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-800 transition-colors hover:bg-red-200 hover:border-red-400 dark:border-red-400/40 dark:bg-red-400/15 dark:text-red-100 dark:hover:bg-red-400/25",
                         pending && "cursor-wait opacity-70",
                       )}
                     >
@@ -261,8 +261,8 @@ function MenuItem({
       className={cn(
         "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
         tone === "danger"
-          ? "text-red-200/90 hover:bg-red-400/10"
-          : "text-white/75 hover:bg-white/[0.06] hover:text-white",
+          ? "text-red-700 hover:bg-red-400/10 dark:text-red-200/90"
+          : "text-[var(--ink-2)] hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]",
       )}
     >
       {children}

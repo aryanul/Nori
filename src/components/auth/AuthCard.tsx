@@ -19,9 +19,9 @@ export function AuthCard({ eyebrow, title, subtitle, children }: Props) {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0b10]/85 px-8 py-9 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-85)] px-8 py-9 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.45)] backdrop-blur-xl">
           {/* Top hairline highlight — single subtle "lit-from-above" cue */}
-          <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+          <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent" />
 
           <header className="mb-7">
             <div className="mb-5 flex items-center gap-2.5">
@@ -33,17 +33,17 @@ export function AuthCard({ eyebrow, title, subtitle, children }: Props) {
                 priority
                 className="rounded-md"
               />
-              <span className="text-sm font-medium tracking-tight text-white/85">
+              <span className="text-sm font-medium tracking-tight text-[var(--ink-1)]">
                 Nori
               </span>
             </div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-white/40">
+            <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-[var(--ink-3)]">
               {eyebrow}
             </p>
-            <h1 className="mt-3 text-3xl font-light leading-[1.05] tracking-[-0.02em] text-white">
+            <h1 className="mt-3 text-3xl font-light leading-[1.05] tracking-[-0.02em] text-[var(--ink-1)]">
               {title}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-white/55">
+            <p className="mt-3 text-sm leading-relaxed text-[var(--ink-2)]">
               {subtitle}
             </p>
           </header>
@@ -58,7 +58,7 @@ export function AuthCard({ eyebrow, title, subtitle, children }: Props) {
           </motion.div>
         </div>
 
-        <p className="mt-5 text-center text-[10px] uppercase tracking-[0.25em] text-white/25">
+        <p className="mt-5 text-center text-[10px] uppercase tracking-[0.25em] text-[var(--ink-4)]">
           Nori · realtime spatial canvases
         </p>
       </motion.div>

@@ -274,11 +274,11 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#0a0b10]/97 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+            className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-97)] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] backdrop-blur-xl"
           >
-            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent" />
 
-            <div className="flex items-center gap-2.5 border-b border-white/[0.07] px-4 py-3">
+            <div className="flex items-center gap-2.5 border-b border-[var(--border-faint)] px-4 py-3">
               <svg
                 width="14"
                 height="14"
@@ -288,7 +288,7 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
                 strokeWidth="1.8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-white/40"
+                className="text-[var(--ink-3)]"
               >
                 <circle cx="11" cy="11" r="7" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -301,22 +301,22 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
                 placeholder="Type a command…"
                 spellCheck={false}
                 autoComplete="off"
-                className="flex-1 cursor-text border-none bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                className="flex-1 cursor-text border-none bg-transparent text-sm text-[var(--ink-1)] outline-none placeholder:text-[var(--ink-4)]"
               />
-              <kbd className="rounded-[5px] border border-white/12 bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-white/55">
+              <kbd className="rounded-[5px] border border-[var(--border-soft)] bg-[var(--pane-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ink-3)]">
                 Esc
               </kbd>
             </div>
 
             <div className="max-h-[50vh] overflow-y-auto p-1.5">
               {filtered.length === 0 ? (
-                <div className="px-3 py-6 text-center text-xs text-white/40">
+                <div className="px-3 py-6 text-center text-xs text-[var(--ink-4)]">
                   No matching commands.
                 </div>
               ) : (
                 grouped.map(([group, items]) => (
                   <div key={group} className="mb-2 last:mb-0">
-                    <div className="px-2.5 pb-1 pt-1.5 text-[9px] font-medium uppercase tracking-[0.22em] text-white/35">
+                    <div className="px-2.5 pb-1 pt-1.5 text-[9px] font-medium uppercase tracking-[0.22em] text-[var(--ink-4)]">
                       {group}
                     </div>
                     {items.map((a) => {
@@ -331,8 +331,8 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
                           className={cn(
                             "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
                             active
-                              ? "bg-white/[0.07] text-white"
-                              : "text-white/75 hover:bg-white/[0.04]",
+                              ? "bg-[var(--pane-2)] text-[var(--ink-1)]"
+                              : "text-[var(--ink-2)] hover:bg-[var(--pane-1)]",
                           )}
                         >
                           <span className="truncate">{a.label}</span>
@@ -341,7 +341,7 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
                               {a.shortcut.map((k, i) => (
                                 <kbd
                                   key={i}
-                                  className="rounded-[4px] border border-white/12 bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-white/55"
+                                  className="rounded-[4px] border border-[var(--border-soft)] bg-[var(--pane-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ink-3)]"
                                 >
                                   {k}
                                 </kbd>
@@ -356,11 +356,11 @@ export function CommandPalette({ onUndo, onRedo }: Props) {
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-white/[0.06] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
+            <div className="flex items-center justify-between border-t border-[var(--border-faint)] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">
               <span>
-                <kbd className="mr-1 rounded-[4px] border border-white/12 bg-white/[0.03] px-1 py-0.5 font-mono">↑↓</kbd>
+                <kbd className="mr-1 rounded-[4px] border border-[var(--border-soft)] bg-[var(--pane-2)] px-1 py-0.5 font-mono">↑↓</kbd>
                 navigate
-                <kbd className="mx-1 ml-3 rounded-[4px] border border-white/12 bg-white/[0.03] px-1 py-0.5 font-mono">↵</kbd>
+                <kbd className="mx-1 ml-3 rounded-[4px] border border-[var(--border-soft)] bg-[var(--pane-2)] px-1 py-0.5 font-mono">↵</kbd>
                 run
               </span>
               <span>

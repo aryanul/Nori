@@ -3,6 +3,8 @@ import type {
   CanvasNode,
   Connection,
   NodeKind,
+  NodeThread,
+  ThreadMessage,
   Viewport,
 } from "@/types/canvas";
 
@@ -38,6 +40,7 @@ type CanvasState = {
   viewport: Viewport;
   nodes: Record<string, CanvasNode>;
   connections: Record<string, Connection>;
+  threads: Record<string, NodeThread>;
   selectedNodeIds: string[];
   selectedConnectionId: string | null;
   pendingConnection: PendingConnection;
@@ -45,6 +48,8 @@ type CanvasState = {
   activeTool: Tool;
   shortcutsOpen: boolean;
   commandPaletteOpen: boolean;
+  // Which node's thread panel is currently open (null = none).
+  openThreadNodeId: string | null;
   readOnly: boolean;
   contextMenu: ContextMenuState;
 
@@ -52,6 +57,7 @@ type CanvasState = {
     workspaceId: string;
     nodes: CanvasNode[];
     connections: Connection[];
+    threads?: NodeThread[];
     readOnly?: boolean;
   }) => void;
   setReadOnly: (readOnly: boolean) => void;
@@ -64,9 +70,24 @@ type CanvasState = {
   replaceCanvasState: (
     nodes: Record<string, CanvasNode>,
     connections: Record<string, Connection>,
+    threads?: Record<string, NodeThread>,
   ) => void;
   replaceNodes: (nodes: Record<string, CanvasNode>) => void;
   replaceConnections: (connections: Record<string, Connection>) => void;
+  replaceThreads: (threads: Record<string, NodeThread>) => void;
+
+  // Threads / comments
+  openThreadFor: (nodeId: string | null) => void;
+  createThread: (
+    nodeId: string,
+    message: Omit<ThreadMessage, "id" | "createdAt">,
+  ) => string | null;
+  addMessageToThread: (
+    threadId: string,
+    message: Omit<ThreadMessage, "id" | "createdAt">,
+  ) => string | null;
+  setThreadResolved: (threadId: string, resolved: boolean) => void;
+  deleteThread: (threadId: string) => void;
 
   setViewport: (v: Viewport) => void;
   panBy: (dx: number, dy: number) => void;
@@ -174,6 +195,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   viewport: INITIAL_VIEWPORT,
   nodes: Object.fromEntries(seedNodes.map((n) => [n.id, n])),
   connections: Object.fromEntries(seedConnections.map((c) => [c.id, c])),
+  threads: {},
   selectedNodeIds: [],
   selectedConnectionId: null,
   pendingConnection: null,
@@ -181,19 +203,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeTool: "select",
   shortcutsOpen: false,
   commandPaletteOpen: false,
+  openThreadNodeId: null,
   readOnly: false,
   contextMenu: { visible: false },
 
-  hydrate: ({ workspaceId, nodes, connections, readOnly = false }) =>
+  hydrate: ({
+    workspaceId,
+    nodes,
+    connections,
+    threads = [],
+    readOnly = false,
+  }) =>
     set({
       workspaceId,
       nodes: Object.fromEntries(nodes.map((n) => [n.id, n])),
       connections: Object.fromEntries(connections.map((c) => [c.id, c])),
+      threads: Object.fromEntries(threads.map((t) => [t.id, t])),
       selectedNodeIds: [],
       selectedConnectionId: null,
       pendingConnection: null,
       selectionRect: null,
       viewport: INITIAL_VIEWPORT,
+      openThreadNodeId: null,
       readOnly,
     }),
   setReadOnly: (readOnly) => set({ readOnly }),
@@ -201,9 +232,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ contextMenu: { visible: true, screenX, screenY, variant } }),
   closeContextMenu: () => set({ contextMenu: { visible: false } }),
 
-  replaceCanvasState: (nodes, connections) => set({ nodes, connections }),
+  replaceCanvasState: (nodes, connections, threads) =>
+    set((state) => ({
+      nodes,
+      connections,
+      threads: threads ?? state.threads,
+    })),
   replaceNodes: (nodes) => set({ nodes }),
   replaceConnections: (connections) => set({ connections }),
+  replaceThreads: (threads) => set({ threads }),
 
   setViewport: (v) => set({ viewport: v }),
   panBy: (dx, dy) =>
@@ -348,6 +385,96 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
+  openThreadFor: (nodeId) => set({ openThreadNodeId: nodeId }),
+
+  createThread: (nodeId, message) => {
+    const state = get();
+    if (state.readOnly) return null;
+    // 1:1 — if a thread already exists for this node, just add to it.
+    const existing = Object.values(state.threads).find(
+      (t) => t.nodeId === nodeId,
+    );
+    if (existing) {
+      return get().addMessageToThread(existing.id, message);
+    }
+    const id = nextId("t");
+    const now = new Date().toISOString();
+    const msg: ThreadMessage = {
+      id: nextId("m"),
+      ...message,
+      createdAt: now,
+    };
+    const thread: NodeThread = {
+      id,
+      nodeId,
+      messages: [msg],
+      resolved: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    set({
+      threads: { ...state.threads, [id]: thread },
+      openThreadNodeId: nodeId,
+    });
+    return id;
+  },
+
+  addMessageToThread: (threadId, message) => {
+    const state = get();
+    if (state.readOnly) return null;
+    const thread = state.threads[threadId];
+    if (!thread) return null;
+    const now = new Date().toISOString();
+    const msg: ThreadMessage = {
+      id: nextId("m"),
+      ...message,
+      createdAt: now,
+    };
+    set({
+      threads: {
+        ...state.threads,
+        [threadId]: {
+          ...thread,
+          messages: [...thread.messages, msg],
+          resolved: false,
+          updatedAt: now,
+        },
+      },
+    });
+    return msg.id;
+  },
+
+  setThreadResolved: (threadId, resolved) =>
+    set((state) => {
+      if (state.readOnly) return state;
+      const thread = state.threads[threadId];
+      if (!thread) return state;
+      return {
+        threads: {
+          ...state.threads,
+          [threadId]: {
+            ...thread,
+            resolved,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      };
+    }),
+
+  deleteThread: (threadId) =>
+    set((state) => {
+      if (state.readOnly) return state;
+      const { [threadId]: _, ...rest } = state.threads;
+      return {
+        threads: rest,
+        openThreadNodeId:
+          state.openThreadNodeId &&
+          state.threads[threadId]?.nodeId === state.openThreadNodeId
+            ? null
+            : state.openThreadNodeId,
+      };
+    }),
+
   removeNode: (id) =>
     set((state) => {
       if (state.readOnly) return state;
@@ -357,10 +484,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ([, c]) => c.fromNodeId !== id && c.toNodeId !== id,
         ),
       );
+      const restThreads = Object.fromEntries(
+        Object.entries(state.threads).filter(([, t]) => t.nodeId !== id),
+      );
       return {
         nodes: restNodes,
         connections: restConnections,
+        threads: restThreads,
         selectedNodeIds: state.selectedNodeIds.filter((sid) => sid !== id),
+        openThreadNodeId:
+          state.openThreadNodeId === id ? null : state.openThreadNodeId,
       };
     }),
 
@@ -379,10 +512,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           restConnections[k] = c;
         }
       }
+      const restThreads: Record<string, NodeThread> = {};
+      for (const [k, t] of Object.entries(state.threads)) {
+        if (!drop.has(t.nodeId)) restThreads[k] = t;
+      }
       return {
         nodes: restNodes,
         connections: restConnections,
+        threads: restThreads,
         selectedNodeIds: state.selectedNodeIds.filter((id) => !drop.has(id)),
+        openThreadNodeId:
+          state.openThreadNodeId && drop.has(state.openThreadNodeId)
+            ? null
+            : state.openThreadNodeId,
       };
     }),
 

@@ -10,7 +10,7 @@ import {
 } from "@/lib/realtime/yjs-provider";
 import { getOrCreateUserIdentity } from "@/lib/realtime/identity";
 import { useCanvasStore } from "@/store/canvas-store";
-import type { CanvasNode, Connection } from "@/types/canvas";
+import type { CanvasNode, Connection, NodeThread } from "@/types/canvas";
 import type { PeerState, UserIdentity } from "@/types/realtime";
 
 type RemoteCursorPublisher = (worldX: number, worldY: number) => void;
@@ -113,7 +113,7 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
 
       const entry = acquireProvider(workspaceId, token);
       entryRef.current = entry;
-      const { doc, provider, nodesMap, connectionsMap } = entry;
+      const { doc, provider, nodesMap, connectionsMap, threadsMap } = entry;
       const awareness = provider.awareness;
       if (!awareness) {
         console.warn("[Nori realtime] provider awareness is null");
@@ -122,21 +122,31 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
 
       // Per-user undo stack. We only track operations our client originated
       // (LOCAL_ORIGIN) — so Ctrl+Z reverses MY edits, not someone else's.
-      const undoManager = new Y.UndoManager([nodesMap, connectionsMap], {
-        trackedOrigins: new Set([LOCAL_ORIGIN]),
-        captureTimeout: 350,
-      });
+      const undoManager = new Y.UndoManager(
+        [nodesMap, connectionsMap, threadsMap],
+        {
+          trackedOrigins: new Set([LOCAL_ORIGIN]),
+          captureTimeout: 350,
+        },
+      );
       undoManagerRef.current = undoManager;
 
       // 1. Seed Y.Maps from current Zustand state — only if empty
       const currentState = useCanvasStore.getState();
-      if (nodesMap.size === 0 && connectionsMap.size === 0) {
+      if (
+        nodesMap.size === 0 &&
+        connectionsMap.size === 0 &&
+        threadsMap.size === 0
+      ) {
         doc.transact(() => {
           for (const node of Object.values(currentState.nodes)) {
             nodesMap.set(node.id, node);
           }
           for (const conn of Object.values(currentState.connections)) {
             connectionsMap.set(conn.id, conn);
+          }
+          for (const thread of Object.values(currentState.threads)) {
+            threadsMap.set(thread.id, thread);
           }
         }, LOCAL_ORIGIN);
       } else {
@@ -146,6 +156,7 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
           .replaceCanvasState(
             ymapToObject<CanvasNode>(nodesMap),
             ymapToObject<Connection>(connectionsMap),
+            ymapToObject<NodeThread>(threadsMap),
           );
         applyingRemoteRef.current = false;
       }
@@ -172,27 +183,44 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
           .replaceConnections(ymapToObject<Connection>(connectionsMap));
         applyingRemoteRef.current = false;
       };
+      const onThreadsChange = (
+        _event: Y.YMapEvent<NodeThread>,
+        transaction: Y.Transaction,
+      ) => {
+        if (transaction.origin === LOCAL_ORIGIN) return;
+        applyingRemoteRef.current = true;
+        useCanvasStore
+          .getState()
+          .replaceThreads(ymapToObject<NodeThread>(threadsMap));
+        applyingRemoteRef.current = false;
+      };
       nodesMap.observe(onNodesChange);
       connectionsMap.observe(onConnectionsChange);
+      threadsMap.observe(onThreadsChange);
 
       let lastNodes = useCanvasStore.getState().nodes;
       let lastConnections = useCanvasStore.getState().connections;
+      let lastThreads = useCanvasStore.getState().threads;
       const unsubStore = useCanvasStore.subscribe((state) => {
         if (
           state.nodes === lastNodes &&
-          state.connections === lastConnections
+          state.connections === lastConnections &&
+          state.threads === lastThreads
         ) {
           return;
         }
         const changedNodes = state.nodes !== lastNodes;
         const changedConnections = state.connections !== lastConnections;
+        const changedThreads = state.threads !== lastThreads;
         lastNodes = state.nodes;
         lastConnections = state.connections;
+        lastThreads = state.threads;
         if (applyingRemoteRef.current) return;
         doc.transact(() => {
           if (changedNodes) syncObjectToYMap(nodesMap, state.nodes);
           if (changedConnections)
             syncObjectToYMap(connectionsMap, state.connections);
+          if (changedThreads) syncObjectToYMap(threadsMap, state.threads);
         }, LOCAL_ORIGIN);
       });
 
@@ -235,6 +263,7 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
         undoManagerRef.current = null;
         nodesMap.unobserve(onNodesChange);
         connectionsMap.unobserve(onConnectionsChange);
+        threadsMap.unobserve(onThreadsChange);
         awareness.off("change", onAwarenessChange);
         provider.off("status", onStatus);
         provider.off("authenticationFailed", onAuthFailure);

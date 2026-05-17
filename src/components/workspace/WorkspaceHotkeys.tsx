@@ -83,6 +83,16 @@ export function WorkspaceHotkeys({ onUndo, onRedo }: Props) {
         return;
       }
 
+      // "M" opens (or focuses) the thread panel for the single selected node.
+      if (!cmd && !e.altKey && !e.shiftKey && (e.key === "m" || e.key === "M")) {
+        const state = useCanvasStore.getState();
+        if (state.selectedNodeIds.length === 1) {
+          e.preventDefault();
+          state.openThreadFor(state.selectedNodeIds[0]);
+          return;
+        }
+      }
+
       // Tool switching — bare letters, no modifiers.
       if (!cmd && !e.altKey && !e.shiftKey) {
         const map: Record<string, Tool> = {

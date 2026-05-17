@@ -64,7 +64,7 @@ function CreateButton() {
       type="submit"
       disabled={pending}
       className={cn(
-        "group relative inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.03] py-3 pl-5 pr-2 text-sm font-medium text-white transition-all hover:border-white/30 hover:bg-white/[0.06]",
+        "group relative inline-flex items-center gap-3 rounded-full border border-[var(--border-default)] bg-[var(--pane-1)] py-3 pl-5 pr-2 text-sm font-medium text-[var(--ink-1)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--pane-2)]",
         pending && "cursor-wait opacity-70",
       )}
     >
@@ -128,7 +128,7 @@ export function HomeStage({
           <span className="text-sm font-medium tracking-tight text-[var(--text-1)]">
             Nori
           </span>
-          <span className="ml-2 hidden rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-white/45 md:inline">
+          <span className="ml-2 hidden rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[var(--ink-3)] md:inline">
             beta
           </span>
         </div>
@@ -149,7 +149,7 @@ export function HomeStage({
       >
         <motion.p
           variants={fadeUp}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-white/55"
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--pane-1)] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-[var(--ink-3)]"
         >
           <span className="size-1 rounded-full bg-[#7ad7ff]" />
           Realtime spatial canvases
@@ -160,7 +160,7 @@ export function HomeStage({
           className="text-balance text-5xl font-extralight leading-[0.95] tracking-[-0.04em] text-[var(--text-1)] md:text-7xl"
         >
           A space where{" "}
-          <span className="italic font-light text-white/95">ideas</span>{" "}
+          <span className="italic font-light text-[var(--ink-1)]">ideas</span>{" "}
           find each other.
         </motion.h1>
 
@@ -187,15 +187,15 @@ export function HomeStage({
         transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
         className="mx-auto max-w-6xl px-6 pb-12 md:px-10"
       >
-        <header className="mb-6 flex items-baseline justify-between border-b border-white/[0.06] pb-3">
-          <h2 className="text-xs font-medium uppercase tracking-[0.24em] text-white/50">
+        <header className="mb-6 flex items-baseline justify-between border-b border-[var(--border-faint)] pb-3">
+          <h2 className="text-xs font-medium uppercase tracking-[0.24em] text-[var(--ink-3)]">
             Or start with a template
           </h2>
-          <span className="text-[10px] uppercase tracking-[0.24em] text-white/30">
+          <span className="text-[10px] uppercase tracking-[0.24em] text-[var(--ink-4)]">
             {TEMPLATE_META.length} templates
           </span>
         </header>
-        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--border-faint)] sm:grid-cols-3">
           {TEMPLATE_META.map((t) => (
             <form
               key={t.id}
@@ -204,7 +204,7 @@ export function HomeStage({
             >
               <button
                 type="submit"
-                className="group relative flex h-full flex-col justify-between gap-6 bg-[#0a0b10] p-5 text-left transition-colors hover:bg-[#0c0d13]"
+                className="group relative flex h-full flex-col justify-between gap-6 bg-[var(--bg)] p-5 text-left transition-colors hover:bg-[var(--bg-elev)]"
               >
                 <span
                   className="size-1.5 rounded-full"
@@ -214,14 +214,14 @@ export function HomeStage({
                   }}
                 />
                 <div>
-                  <h3 className="text-[15px] font-medium leading-tight text-white/92">
+                  <h3 className="text-[15px] font-medium leading-tight text-[var(--ink-1)]">
                     {t.title}
                   </h3>
-                  <p className="mt-1 text-xs leading-relaxed text-white/45">
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--ink-3)]">
                     {t.description}
                   </p>
                 </div>
-                <span className="flex size-7 items-center justify-center self-end rounded-full border border-white/10 text-white/60 transition-all group-hover:border-white/30 group-hover:text-white">
+                <span className="flex size-7 items-center justify-center self-end rounded-full border border-[var(--border-soft)] text-[var(--ink-3)] transition-all group-hover:border-[var(--border-strong)] group-hover:text-[var(--ink-1)]">
                   <svg
                     width="11"
                     height="11"
@@ -249,30 +249,30 @@ export function HomeStage({
         transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
         className="mx-auto max-w-6xl px-6 pb-20 md:px-10"
       >
-        <header className="mb-6 flex items-baseline justify-between border-b border-white/[0.06] pb-3">
-          <h2 className="text-xs font-medium uppercase tracking-[0.24em] text-white/50">
+        <header className="mb-6 flex items-baseline justify-between border-b border-[var(--border-faint)] pb-3">
+          <h2 className="text-xs font-medium uppercase tracking-[0.24em] text-[var(--ink-3)]">
             Your workspaces
           </h2>
           {recent.length > 0 && (
-            <span className="text-[10px] uppercase tracking-[0.24em] text-white/30">
+            <span className="text-[10px] uppercase tracking-[0.24em] text-[var(--ink-4)]">
               {recent.length} {recent.length === 1 ? "space" : "spaces"}
             </span>
           )}
         </header>
 
         {dbError ? (
-          <div className="rounded-2xl border border-red-400/30 bg-red-400/[0.06] px-4 py-3 text-sm text-red-200">
+          <div className="rounded-2xl border border-red-400/40 bg-red-400/[0.08] px-4 py-3 text-sm text-red-800 dark:text-red-200">
             Couldn’t reach MongoDB: {dbError}
           </div>
         ) : recent.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.09] px-6 py-16 text-center">
-            <p className="text-sm text-white/55">No canvases yet.</p>
-            <p className="mt-1 text-xs text-white/35">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-soft)] px-6 py-16 text-center">
+            <p className="text-sm text-[var(--ink-2)]">No canvases yet.</p>
+            <p className="mt-1 text-xs text-[var(--ink-4)]">
               Create one above to get started.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--border-faint)] sm:grid-cols-2 lg:grid-cols-3">
             {recent.map((w, idx) => (
               <motion.div
                 key={w.id}
@@ -286,7 +286,7 @@ export function HomeStage({
               >
                 <Link
                   href={`/w/${w.id}`}
-                  className="group relative flex h-full flex-col justify-between gap-8 bg-[#0a0b10] p-5 transition-colors hover:bg-[#0c0d13]"
+                  className="group relative flex h-full flex-col justify-between gap-8 bg-[var(--bg)] p-5 transition-colors hover:bg-[var(--bg-elev)]"
                 >
                   <div>
                     <div className="mb-3 flex items-center gap-2">
@@ -298,14 +298,14 @@ export function HomeStage({
                         <Pill tone="muted">legacy</Pill>
                       ) : null}
                     </div>
-                    <h3 className="truncate text-[15px] font-medium leading-tight text-white/92">
+                    <h3 className="truncate text-[15px] font-medium leading-tight text-[var(--ink-1)]">
                       {w.title || "Untitled workspace"}
                     </h3>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] tracking-wide text-white/35">
+                  <div className="flex items-center justify-between text-[11px] tracking-wide text-[var(--ink-4)]">
                     <span>{relativeTime(w.updatedAt)} ago</span>
-                    <span className="flex size-7 items-center justify-center rounded-full border border-white/10 text-white/60 transition-all group-hover:border-white/30 group-hover:text-white">
+                    <span className="flex size-7 items-center justify-center rounded-full border border-[var(--border-soft)] text-[var(--ink-3)] transition-all group-hover:border-[var(--border-strong)] group-hover:text-[var(--ink-1)]">
                       <svg
                         width="11"
                         height="11"
@@ -328,8 +328,8 @@ export function HomeStage({
         )}
       </motion.section>
 
-      <footer className="border-t border-white/[0.06]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-[11px] tracking-wide text-white/35 md:flex-row md:items-center md:justify-between md:px-10">
+      <footer className="border-t border-[var(--border-faint)]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-[11px] tracking-wide text-[var(--ink-4)] md:flex-row md:items-center md:justify-between md:px-10">
           <div className="flex items-center gap-2">
             <Image
               src="/nori-logo.png"
@@ -361,9 +361,9 @@ function Pill({
   tone: "cyan" | "magenta" | "muted";
 }) {
   const cls = {
-    cyan: "border-[#7ad7ff]/30 bg-[#7ad7ff]/[0.08] text-[#bde8ff]",
-    magenta: "border-[#e98dd8]/30 bg-[#e98dd8]/[0.08] text-[#f4c5ec]",
-    muted: "border-white/10 bg-white/[0.04] text-white/45",
+    cyan: "border-sky-300 bg-sky-100 text-sky-900 dark:border-[#7ad7ff]/40 dark:bg-[#7ad7ff]/[0.12] dark:text-[#bde8ff]",
+    magenta: "border-fuchsia-300 bg-fuchsia-100 text-fuchsia-900 dark:border-[#e98dd8]/40 dark:bg-[#e98dd8]/[0.12] dark:text-[#f4c5ec]",
+    muted: "border-[var(--border-soft)] bg-[var(--pane-1)] text-[var(--ink-3)]",
   }[tone];
   return (
     <span

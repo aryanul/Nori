@@ -22,7 +22,7 @@ export function SignUpForm({ redirectTo }: Props) {
       <div className="space-y-1.5">
         <label
           htmlFor="name"
-          className="block text-[10px] uppercase tracking-[0.25em] text-white/40"
+          className="block text-[10px] uppercase tracking-[0.25em] text-[var(--ink-3)]"
         >
           Name
         </label>
@@ -31,14 +31,14 @@ export function SignUpForm({ redirectTo }: Props) {
           name="name"
           type="text"
           autoComplete="name"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.06]"
+          className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--pane-1)] px-3 py-2.5 text-sm text-[var(--ink-1)] outline-none transition-colors placeholder:text-[var(--ink-4)] focus:border-[var(--border-strong)] focus:bg-[var(--pane-2)]"
           placeholder="Optional"
         />
       </div>
       <div className="space-y-1.5">
         <label
           htmlFor="email"
-          className="block text-[10px] uppercase tracking-[0.25em] text-white/40"
+          className="block text-[10px] uppercase tracking-[0.25em] text-[var(--ink-3)]"
         >
           Email
         </label>
@@ -48,14 +48,14 @@ export function SignUpForm({ redirectTo }: Props) {
           type="email"
           required
           autoComplete="email"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.06]"
+          className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--pane-1)] px-3 py-2.5 text-sm text-[var(--ink-1)] outline-none transition-colors placeholder:text-[var(--ink-4)] focus:border-[var(--border-strong)] focus:bg-[var(--pane-2)]"
           placeholder="you@example.com"
         />
       </div>
       <div className="space-y-1.5">
         <label
           htmlFor="password"
-          className="block text-[10px] uppercase tracking-[0.25em] text-white/40"
+          className="block text-[10px] uppercase tracking-[0.25em] text-[var(--ink-3)]"
         >
           Password
         </label>
@@ -66,13 +66,13 @@ export function SignUpForm({ redirectTo }: Props) {
           required
           minLength={8}
           autoComplete="new-password"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.06]"
+          className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--pane-1)] px-3 py-2.5 text-sm text-[var(--ink-1)] outline-none transition-colors placeholder:text-[var(--ink-4)] focus:border-[var(--border-strong)] focus:bg-[var(--pane-2)]"
           placeholder="At least 8 characters"
         />
       </div>
 
       {state.error && (
-        <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-200">
+        <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-800 dark:text-red-200">
           {state.error}
         </p>
       )}
@@ -80,16 +80,16 @@ export function SignUpForm({ redirectTo }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl border border-sky-400/40 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition-colors hover:bg-sky-400/20 disabled:cursor-wait disabled:opacity-60"
+        className="w-full rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-sm font-medium text-sky-900 transition-colors hover:bg-sky-200 hover:border-sky-400 disabled:cursor-wait disabled:opacity-60 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-100 dark:hover:bg-sky-400/20"
       >
         {pending ? "Creating account…" : "Create account"}
       </button>
 
-      <p className="text-center text-xs text-white/50">
+      <p className="text-center text-xs text-[var(--ink-3)]">
         Already have an account?{" "}
         <Link
           href={signInHref}
-          className="text-sky-200 underline-offset-2 hover:underline"
+          className="text-sky-900 underline-offset-2 hover:underline dark:text-sky-200"
         >
           Sign in
         </Link>

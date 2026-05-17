@@ -7,12 +7,13 @@ import { connectDB } from "@/lib/mongoose";
 import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
+import { ThreadModel } from "@/lib/models/thread";
 import { verifyRealtimeToken } from "@/lib/realtime/token";
 import {
   userCanAccessWorkspace,
   userCanEditWorkspace,
 } from "@/lib/workspace-access";
-import type { CanvasNode, Connection } from "@/types/canvas";
+import type { CanvasNode, Connection, NodeThread } from "@/types/canvas";
 
 const PORT = Number(process.env.HOCUSPOCUS_PORT ?? 1234);
 
@@ -92,13 +93,15 @@ const server = new Server({
       return;
     }
 
-    const [nodes, connections] = await Promise.all([
+    const [nodes, connections, threads] = await Promise.all([
       NodeModel.find({ workspaceId }).lean(),
       ConnectionModel.find({ workspaceId }).lean(),
+      ThreadModel.find({ workspaceId }).lean(),
     ]);
 
     const nodesMap = document.getMap<CanvasNode>("nodes");
     const connectionsMap = document.getMap<Connection>("connections");
+    const threadsMap = document.getMap<NodeThread>("threads");
 
     document.transact(() => {
       for (const n of nodes) {
@@ -131,10 +134,29 @@ const server = new Server({
           });
         }
       }
+      for (const t of threads) {
+        if (!threadsMap.has(t._id)) {
+          threadsMap.set(t._id, {
+            id: t._id,
+            nodeId: t.nodeId,
+            messages: (t.messages ?? []).map((m) => ({
+              id: m.id,
+              authorId: m.authorId,
+              authorName: m.authorName ?? "",
+              authorColor: m.authorColor ?? "#7ad7ff",
+              body: m.body,
+              createdAt: m.createdAt,
+            })),
+            resolved: t.resolved ?? false,
+            createdAt: t.createdAt.toISOString(),
+            updatedAt: t.updatedAt.toISOString(),
+          });
+        }
+      }
     });
 
     console.log(
-      `[Hocuspocus] Loaded workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections`,
+      `[Hocuspocus] Loaded workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads`,
     );
   },
 
@@ -145,6 +167,7 @@ const server = new Server({
 
     const nodesMap = document.getMap<CanvasNode>("nodes");
     const connectionsMap = document.getMap<Connection>("connections");
+    const threadsMap = document.getMap<NodeThread>("threads");
 
     const nodes: CanvasNode[] = [];
     nodesMap.forEach((value) => nodes.push(value));
@@ -152,11 +175,15 @@ const server = new Server({
     const connections: Connection[] = [];
     connectionsMap.forEach((value) => connections.push(value));
 
+    const threads: NodeThread[] = [];
+    threadsMap.forEach((value) => threads.push(value));
+
     // Coarse-grained replace, consistent with the prior manual-save behavior.
     // Switching to fine-grained upserts (via document events) is a follow-up.
     await Promise.all([
       NodeModel.deleteMany({ workspaceId }),
       ConnectionModel.deleteMany({ workspaceId }),
+      ThreadModel.deleteMany({ workspaceId }),
     ]);
 
     if (nodes.length) {
@@ -193,13 +220,32 @@ const server = new Server({
       );
     }
 
+    if (threads.length) {
+      await ThreadModel.insertMany(
+        threads.map((t) => ({
+          _id: t.id,
+          workspaceId,
+          nodeId: t.nodeId,
+          messages: (t.messages ?? []).map((m) => ({
+            id: m.id,
+            authorId: m.authorId,
+            authorName: m.authorName,
+            authorColor: m.authorColor,
+            body: m.body,
+            createdAt: m.createdAt,
+          })),
+          resolved: t.resolved ?? false,
+        })),
+      );
+    }
+
     await Workspace.updateOne(
       { _id: workspaceId },
       { $set: { updatedAt: new Date() } },
     );
 
     console.log(
-      `[Hocuspocus] Stored workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections`,
+      `[Hocuspocus] Stored workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads`,
     );
   },
 });

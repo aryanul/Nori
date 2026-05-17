@@ -21,7 +21,7 @@ export function Toolbar({
   const readOnly = useCanvasStore((s) => s.readOnly);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-white/[0.09] bg-[#0a0b10]/85 px-3 py-1.5 text-xs text-white/70 backdrop-blur-xl">
+    <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-85)] px-3 py-1.5 text-xs text-[var(--ink-2)] backdrop-blur-xl">
       <Image
         src="/nori-logo.png"
         alt="Nori"
@@ -29,7 +29,7 @@ export function Toolbar({
         height={20}
         className="rounded-[5px]"
       />
-      <span className="h-3.5 w-px bg-white/10" />
+      <span className="h-3.5 w-px bg-[var(--border-soft)]" />
       {workspaceId ? (
         <EditableTitle
           workspaceId={workspaceId}
@@ -37,36 +37,36 @@ export function Toolbar({
           editable={canEditTitle}
         />
       ) : (
-        <span className="max-w-[220px] truncate text-white/65">
+        <span className="max-w-[220px] truncate text-[var(--ink-2)]">
           {workspaceTitle ?? "Playground"}
         </span>
       )}
       {readOnly && (
         <>
-          <span className="h-3.5 w-px bg-white/10" />
+          <span className="h-3.5 w-px bg-[var(--border-soft)]" />
           <span
-            className="rounded-md border border-amber-300/30 bg-amber-300/[0.08] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-amber-200"
+            className="rounded-md border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200"
             title="You can view this workspace but not edit it"
           >
             View only
           </span>
         </>
       )}
-      <span className="h-3.5 w-px bg-white/10" />
-      <span className="tabular-nums text-white/45">
+      <span className="h-3.5 w-px bg-[var(--border-soft)]" />
+      <span className="tabular-nums text-[var(--ink-3)]">
         {Math.round(scale * 100)}%
       </span>
       <button
         type="button"
         onClick={reset}
         title="Reset viewport"
-        className="rounded-lg px-2 py-1 text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
+        className="rounded-lg px-2 py-1 text-[var(--ink-3)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
       >
         Reset
       </button>
       {workspaceId && (
         <>
-          <span className="h-3.5 w-px bg-white/10" />
+          <span className="h-3.5 w-px bg-[var(--border-soft)]" />
           <WorkspaceSettingsMenu
             workspaceId={workspaceId}
             workspaceTitle={workspaceTitle ?? ""}

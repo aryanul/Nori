@@ -9,12 +9,15 @@ import { ConnectionsLayer } from "./ConnectionsLayer";
 import { SelectionRectOverlay } from "./SelectionRectOverlay";
 import { NodeInspector } from "./NodeInspector";
 import { ResizeHandles } from "./ResizeHandles";
-import type { PeerState } from "@/types/realtime";
+import { ThreadBadges } from "./ThreadBadges";
+import { ThreadPanel } from "./ThreadPanel";
+import type { PeerState, UserIdentity } from "@/types/realtime";
 import { RemoteCursors } from "./RemoteCursors";
 
 type Props = {
   onCursorMove?: (worldX: number, worldY: number) => void;
   peers?: PeerState[];
+  self?: UserIdentity | null;
   worldRef?: React.RefObject<HTMLDivElement | null>;
 };
 
@@ -23,6 +26,7 @@ type DragMode = null | "pan" | "rect";
 export function InfiniteCanvas({
   onCursorMove,
   peers = [],
+  self = null,
   worldRef: externalWorldRef,
 }: Props) {
   const viewport = useCanvasStore((s) => s.viewport);
@@ -289,10 +293,10 @@ export function InfiniteCanvas({
 
       {Object.keys(nodes).length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-center text-xs text-white/55 backdrop-blur-md">
-            <span className="font-medium text-white/80">Double-click</span>{" "}
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-85)] px-5 py-3 text-center text-xs text-[var(--ink-3)] backdrop-blur-md">
+            <span className="font-medium text-[var(--ink-1)]">Double-click</span>{" "}
             anywhere to create a node ·{" "}
-            <span className="font-medium text-white/80">?</span> for shortcuts
+            <span className="font-medium text-[var(--ink-1)]">?</span> for shortcuts
           </div>
         </div>
       )}
@@ -326,7 +330,9 @@ export function InfiniteCanvas({
 
         <SelectionRectOverlay />
         <ResizeHandles />
+        <ThreadBadges />
         <NodeInspector />
+        <ThreadPanel self={self} />
         <RemoteCursors peers={peers} />
       </div>
     </div>

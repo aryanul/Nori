@@ -31,11 +31,11 @@ function Avatar({
       onClick={onClick}
       title={onClick ? `Jump to ${name}` : name}
       className={
-        "flex items-center justify-center rounded-full text-[10px] font-semibold text-white/95 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18),0_0_0_2px_#0a0b10] " +
+        "flex items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18),0_0_0_2px_var(--surface-85)] " +
         (onClick
           ? "cursor-pointer transition-transform hover:scale-110 active:scale-95"
           : "") +
-        (active ? " ring-1 ring-white/40" : "")
+        (active ? " ring-1 ring-[var(--ink-3)]" : "")
       }
       style={{ width: size, height: size, backgroundColor: color }}
     >
@@ -51,29 +51,29 @@ const STATUS_META: Record<
   connecting: {
     label: () => "Connecting",
     dotClass:
-      "bg-amber-300/85 shadow-[0_0_8px_rgba(252,211,77,0.55)] animate-pulse",
+      "bg-amber-400/85 shadow-[0_0_8px_rgba(252,211,77,0.55)] animate-pulse",
     tooltip: "Connecting to the sync server",
   },
   live: {
     label: (n) => `${n + 1} live`,
-    dotClass: "bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.55)]",
+    dotClass: "bg-emerald-500/90 shadow-[0_0_8px_rgba(52,211,153,0.55)]",
     tooltip: "Connected — edits sync live. Click an avatar to jump to them.",
   },
   solo: {
     label: () => "Solo",
-    dotClass: "bg-white/35",
+    dotClass: "bg-[var(--ink-4)]",
     tooltip:
       "Signaling is connected but no peers found. Share the URL to collaborate.",
   },
   offline: {
     label: () => "Offline",
-    dotClass: "bg-red-400/80",
+    dotClass: "bg-red-500/80",
     tooltip:
       "Couldn’t reach the sync server. Make sure `npm run hocuspocus` is running. Edits stay local.",
   },
   unauthorized: {
     label: () => "Auth required",
-    dotClass: "bg-red-400/80",
+    dotClass: "bg-red-500/80",
     tooltip:
       "Your sync session expired or you don’t have access. Refresh the page.",
   },
@@ -85,18 +85,18 @@ export function PresenceBar({ self, peers, status }: Props) {
 
   return (
     <div
-      className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-white/[0.09] bg-[#0a0b10]/85 px-3 py-1.5 text-xs text-white/65 backdrop-blur-xl"
+      className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-85)] px-3 py-1.5 text-xs text-[var(--ink-2)] backdrop-blur-xl"
       title={meta.tooltip}
     >
       <span className="flex items-center gap-1.5">
         <span className={`size-1.5 rounded-full ${meta.dotClass}`} />
-        <span className="text-[10px] uppercase tracking-[0.18em] text-white/50">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-3)]">
           {meta.label(peers.length)}
         </span>
       </span>
       {(self || peers.length > 0) && (
         <>
-          <span className="h-3.5 w-px bg-white/10" />
+          <span className="h-3.5 w-px bg-[var(--border-soft)]" />
           <div className="flex -space-x-1.5">
             {self && <Avatar color={self.color} name={self.name} />}
             {peers.slice(0, 4).map((p) => (
@@ -113,7 +113,7 @@ export function PresenceBar({ self, peers, status }: Props) {
               />
             ))}
             {peers.length > 4 && (
-              <div className="flex size-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-semibold text-white/80 shadow-[0_0_0_2px_#0a0b10]">
+              <div className="flex size-5 items-center justify-center rounded-full bg-[var(--pane-3)] text-[9px] font-semibold text-[var(--ink-1)] shadow-[0_0_0_2px_var(--surface-85)]">
                 +{peers.length - 4}
               </div>
             )}

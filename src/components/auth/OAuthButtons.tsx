@@ -13,10 +13,9 @@ function GitHubIcon() {
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden>
       <path
         d="M21.35 11.1H12v2.95h5.35c-.23 1.46-1.7 4.3-5.35 4.3-3.22 0-5.85-2.66-5.85-5.95s2.63-5.95 5.85-5.95c1.83 0 3.06.78 3.76 1.45l2.57-2.47C16.83 3.95 14.7 3 12 3 6.98 3 3 6.95 3 12s3.98 9 9 9c5.2 0 8.65-3.65 8.65-8.8 0-.6-.07-1.05-.16-1.5z"
-        fill="#fff"
       />
     </svg>
   );
@@ -46,12 +45,12 @@ export function OAuthButtons({ redirectTo }: Props) {
               ? "Set AUTH_GITHUB_ID and AUTH_GITHUB_SECRET in .env.local"
               : "Continue with GitHub"
           }
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/[0.10] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white/[0.06]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--pane-2)] px-4 py-2.5 text-sm font-medium text-[var(--ink-1)] transition-colors hover:bg-[var(--pane-3)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--pane-2)]"
         >
           <GitHubIcon />
           Continue with GitHub
           {githubDisabled && (
-            <span className="ml-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-white/50">
+            <span className="ml-1 rounded-md bg-[var(--pane-3)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[var(--ink-3)]">
               soon
             </span>
           )}
@@ -66,12 +65,12 @@ export function OAuthButtons({ redirectTo }: Props) {
               ? "Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET in .env.local"
               : "Continue with Google"
           }
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/[0.10] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white/[0.06]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--pane-2)] px-4 py-2.5 text-sm font-medium text-[var(--ink-1)] transition-colors hover:bg-[var(--pane-3)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--pane-2)]"
         >
           <GoogleIcon />
           Continue with Google
           {googleDisabled && (
-            <span className="ml-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-white/50">
+            <span className="ml-1 rounded-md bg-[var(--pane-3)] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[var(--ink-3)]">
               soon
             </span>
           )}

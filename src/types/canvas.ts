@@ -33,3 +33,24 @@ export type Connection = {
   fromNodeId: string;
   toNodeId: string;
 };
+
+export type ThreadMessage = {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorColor: string;
+  body: string;
+  /** ISO timestamp. */
+  createdAt: string;
+};
+
+export type NodeThread = {
+  id: string;
+  /** The node this thread is anchored to. */
+  nodeId: string;
+  messages: ThreadMessage[];
+  resolved: boolean;
+  /** ISO timestamps. */
+  createdAt: string;
+  updatedAt: string;
+};

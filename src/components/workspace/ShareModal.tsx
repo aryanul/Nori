@@ -157,16 +157,16 @@ export function ShareModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0c0d12]/95 p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--surface-95)] p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] backdrop-blur-xl"
           >
                 {/* glossy top edge */}
-                <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent" />
 
                 <header className="space-y-1.5">
-                  <h2 className="text-lg font-semibold tracking-tight text-white">
+                  <h2 className="text-lg font-semibold tracking-tight text-[var(--ink-1)]">
                     Share this workspace
                   </h2>
-                  <p className="text-xs leading-relaxed text-white/55">
+                  <p className="text-xs leading-relaxed text-[var(--ink-3)]">
                     {mode === "edit"
                       ? "Anyone signed in who opens this link gets added as a member and can collaborate live."
                       : "Anyone signed in who opens this link can view the workspace but cannot edit it."}
@@ -174,7 +174,7 @@ export function ShareModal({
                 </header>
 
                 {/* Edit / View-only toggle */}
-                <div className="mt-5 inline-flex rounded-lg border border-white/[0.09] bg-white/[0.02] p-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">
+                <div className="mt-5 inline-flex rounded-lg border border-[var(--border-soft)] bg-[var(--pane-1)] p-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">
                   <button
                     type="button"
                     onClick={() => {
@@ -184,8 +184,8 @@ export function ShareModal({
                     className={cn(
                       "rounded-md px-3 py-1 transition-colors",
                       mode === "edit"
-                        ? "bg-[#7ad7ff]/[0.12] text-[#bde8ff] shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
-                        : "text-white/50 hover:text-white/80",
+                        ? "bg-sky-100 text-sky-900 shadow-[inset_0_0_0_1px_rgb(125,211,252)] dark:bg-[#7ad7ff]/[0.14] dark:text-[var(--ink-1)] dark:shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
+                        : "text-[var(--ink-3)] hover:text-[var(--ink-1)]",
                     )}
                   >
                     Can edit
@@ -199,8 +199,8 @@ export function ShareModal({
                     className={cn(
                       "rounded-md px-3 py-1 transition-colors",
                       mode === "view"
-                        ? "bg-amber-300/[0.10] text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,205,122,0.30)]"
-                        : "text-white/50 hover:text-white/80",
+                        ? "bg-amber-100 text-amber-900 shadow-[inset_0_0_0_1px_rgb(252,211,77)] dark:bg-amber-300/[0.14] dark:text-amber-200 dark:shadow-[inset_0_0_0_1px_rgba(245,205,122,0.40)]"
+                        : "text-[var(--ink-3)] hover:text-[var(--ink-1)]",
                     )}
                   >
                     View only
@@ -211,7 +211,7 @@ export function ShareModal({
                   <div className="flex items-baseline justify-between">
                     <label
                       htmlFor="share-url"
-                      className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/40"
+                      className="text-[10px] font-medium uppercase tracking-[0.25em] text-[var(--ink-3)]"
                     >
                       {mode === "edit" ? "Edit link" : "View-only link"}
                     </label>
@@ -219,7 +219,7 @@ export function ShareModal({
                       type="button"
                       onClick={onRegenerate}
                       disabled={regenPending}
-                      className="text-[10px] uppercase tracking-wider text-white/40 transition-colors hover:text-white/70 disabled:opacity-50"
+                      className="text-[10px] uppercase tracking-wider text-[var(--ink-3)] transition-colors hover:text-[var(--ink-1)] disabled:opacity-50"
                     >
                       Regenerate
                     </button>
@@ -230,7 +230,7 @@ export function ShareModal({
                       readOnly
                       value={activeUrl}
                       onFocus={(e) => e.currentTarget.select()}
-                      className="flex-1 cursor-text rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/80 outline-none transition-colors focus:border-white/25"
+                      className="flex-1 cursor-text rounded-xl border border-[var(--border-soft)] bg-[var(--pane-1)] px-3 py-2 text-xs text-[var(--ink-1)] outline-none transition-colors focus:border-[var(--border-default)]"
                     />
                     <button
                       type="button"
@@ -238,8 +238,8 @@ export function ShareModal({
                       className={cn(
                         "rounded-xl border px-3 py-2 text-xs font-medium transition-colors",
                         copied
-                          ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"
-                          : "border-sky-400/40 bg-sky-400/10 text-sky-100 hover:bg-sky-400/20",
+                          ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-200"
+                          : "border-sky-300 bg-sky-100 text-sky-900 hover:bg-sky-200 hover:border-sky-400 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-100 dark:hover:bg-sky-400/20",
                       )}
                     >
                       {copied ? "Copied" : "Copy"}
@@ -247,15 +247,15 @@ export function ShareModal({
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-3 border-t border-white/5 pt-5">
-                  <h3 className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/40">
+                <div className="mt-6 space-y-3 border-t border-[var(--border-faint)] pt-5">
+                  <h3 className="text-[10px] font-medium uppercase tracking-[0.25em] text-[var(--ink-3)]">
                     People with access
                   </h3>
 
                   {loadingMembers ? (
-                    <p className="text-xs text-white/35">Loading…</p>
+                    <p className="text-xs text-[var(--ink-4)]">Loading…</p>
                   ) : members.length === 0 ? (
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-[var(--ink-4)]">
                       Just you so far. Share the link above.
                     </p>
                   ) : (
@@ -275,11 +275,11 @@ export function ShareModal({
                   )}
                 </div>
 
-          <div className="mt-6 flex justify-end border-t border-white/5 pt-4">
+          <div className="mt-6 flex justify-end border-t border-[var(--border-faint)] pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
+              className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--ink-2)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
             >
               Done
             </button>
@@ -312,7 +312,7 @@ function MemberRow({
     .slice(0, 1)
     .toUpperCase();
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
+    <li className="flex items-center gap-3 rounded-xl border border-[var(--border-faint)] bg-[var(--pane-1)] px-3 py-2">
       {member.image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -320,30 +320,30 @@ function MemberRow({
           alt={member.name ?? ""}
           width={28}
           height={28}
-          className="size-7 rounded-full border border-white/15 object-cover"
+          className="size-7 rounded-full border border-[var(--border-default)] object-cover"
         />
       ) : (
-        <span className="flex size-7 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[11px] font-semibold text-white">
+        <span className="flex size-7 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--pane-3)] text-[11px] font-semibold text-[var(--ink-1)]">
           {initial}
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-white/85">
+        <p className="truncate text-xs text-[var(--ink-1)]">
           {member.name ?? member.email ?? "Unknown user"}
         </p>
         {member.email && member.name && (
-          <p className="truncate text-[10px] text-white/40">{member.email}</p>
+          <p className="truncate text-[10px] text-[var(--ink-4)]">{member.email}</p>
         )}
       </div>
       {member.isOwner ? (
-        <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-sky-200">
+        <span className="rounded-full border border-sky-300 bg-sky-100 px-2 py-0.5 text-[9px] uppercase tracking-wider text-sky-900 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-200">
           Owner
         </span>
       ) : canRemove && onRemove ? (
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-lg border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-white/55 transition-colors hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-200"
+          className="rounded-lg border border-[var(--border-soft)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--ink-3)] transition-colors hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-700 dark:hover:text-red-200"
         >
           Remove
         </button>

@@ -133,7 +133,7 @@ export function ResizeHandles() {
           key={c.id}
           data-export-skip
           onPointerDown={(e) => startResize(c.id, e)}
-          className="pointer-events-auto absolute rounded-sm border border-white/40 bg-[#7ad7ff] shadow-[0_0_10px_rgba(122,215,255,0.55)]"
+          className="pointer-events-auto absolute rounded-sm border border-[var(--border-strong)] bg-[#7ad7ff] shadow-[0_0_10px_rgba(122,215,255,0.55)]"
           style={{
             left: c.left,
             top: c.top,
