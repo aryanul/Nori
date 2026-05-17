@@ -6,9 +6,10 @@ import { ShareModal } from "./ShareModal";
 type Props = {
   workspaceId: string;
   inviteToken: string;
+  viewToken: string | null;
 };
 
-export function ShareButton({ workspaceId, inviteToken }: Props) {
+export function ShareButton({ workspaceId, inviteToken, viewToken }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -44,6 +45,7 @@ export function ShareButton({ workspaceId, inviteToken }: Props) {
       <ShareModal
         workspaceId={workspaceId}
         inviteToken={inviteToken}
+        viewToken={viewToken}
         open={open}
         onClose={() => setOpen(false)}
       />

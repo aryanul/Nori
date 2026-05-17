@@ -21,6 +21,18 @@ export type SelectionRect = {
   endY: number;
 } | null;
 
+export type ContextMenuState =
+  | {
+      visible: true;
+      screenX: number;
+      screenY: number;
+      // 'selection': right-clicked a node (or a member of the selection).
+      //              Acts on selectedNodeIds at the time the menu opens.
+      // 'canvas':    right-clicked empty canvas. Workspace-level actions.
+      variant: "selection" | "canvas";
+    }
+  | { visible: false };
+
 type CanvasState = {
   workspaceId: string | null;
   viewport: Viewport;
@@ -32,12 +44,23 @@ type CanvasState = {
   selectionRect: SelectionRect;
   activeTool: Tool;
   shortcutsOpen: boolean;
+  commandPaletteOpen: boolean;
+  readOnly: boolean;
+  contextMenu: ContextMenuState;
 
   hydrate: (snapshot: {
     workspaceId: string;
     nodes: CanvasNode[];
     connections: Connection[];
+    readOnly?: boolean;
   }) => void;
+  setReadOnly: (readOnly: boolean) => void;
+  openContextMenu: (
+    screenX: number,
+    screenY: number,
+    variant: "selection" | "canvas",
+  ) => void;
+  closeContextMenu: () => void;
   replaceCanvasState: (
     nodes: Record<string, CanvasNode>,
     connections: Record<string, Connection>,
@@ -49,10 +72,13 @@ type CanvasState = {
   panBy: (dx: number, dy: number) => void;
   zoomAt: (factor: number, clientX: number, clientY: number) => void;
   resetViewport: () => void;
+  flyToPoint: (worldX: number, worldY: number) => void;
 
   setActiveTool: (tool: Tool) => void;
   toggleShortcuts: () => void;
   setShortcutsOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
+  setCommandPaletteOpen: (open: boolean) => void;
 
   createNode: (x: number, y: number, kind?: NodeKind) => string;
   addNode: (node: CanvasNode) => void;
@@ -154,8 +180,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectionRect: null,
   activeTool: "select",
   shortcutsOpen: false,
+  commandPaletteOpen: false,
+  readOnly: false,
+  contextMenu: { visible: false },
 
-  hydrate: ({ workspaceId, nodes, connections }) =>
+  hydrate: ({ workspaceId, nodes, connections, readOnly = false }) =>
     set({
       workspaceId,
       nodes: Object.fromEntries(nodes.map((n) => [n.id, n])),
@@ -165,7 +194,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       pendingConnection: null,
       selectionRect: null,
       viewport: INITIAL_VIEWPORT,
+      readOnly,
     }),
+  setReadOnly: (readOnly) => set({ readOnly }),
+  openContextMenu: (screenX, screenY, variant) =>
+    set({ contextMenu: { visible: true, screenX, screenY, variant } }),
+  closeContextMenu: () => set({ contextMenu: { visible: false } }),
 
   replaceCanvasState: (nodes, connections) => set({ nodes, connections }),
   replaceNodes: (nodes) => set({ nodes }),
@@ -198,12 +232,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   resetViewport: () => set({ viewport: INITIAL_VIEWPORT }),
 
+  flyToPoint: (worldX, worldY) => {
+    if (typeof window === "undefined") return;
+    const startVp = get().viewport;
+    const targetX = window.innerWidth / 2 - worldX * startVp.scale;
+    const targetY = window.innerHeight / 2 - worldY * startVp.scale;
+    const startTime = performance.now();
+    const duration = 380;
+
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const current = get().viewport;
+      set({
+        viewport: {
+          scale: current.scale, // user might zoom mid-flight; respect it
+          x: startVp.x + (targetX - startVp.x) * eased,
+          y: startVp.y + (targetY - startVp.y) * eased,
+        },
+      });
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  },
+
   setActiveTool: (tool) => set({ activeTool: tool }),
   toggleShortcuts: () =>
     set((state) => ({ shortcutsOpen: !state.shortcutsOpen })),
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  toggleCommandPalette: () =>
+    set((state) => ({ commandPaletteOpen: !state.commandPaletteOpen })),
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
   createNode: (x, y, kind = "card") => {
+    if (get().readOnly) return "";
     const id = nextId("n");
     const defaults = NODE_DEFAULTS[kind];
     const node: CanvasNode = {
@@ -237,6 +300,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   moveNodesBy: (ids, dx, dy) =>
     set((state) => {
+      if (state.readOnly) return state;
       if (ids.length === 0 || (dx === 0 && dy === 0)) return state;
       const nextNodes = { ...state.nodes };
       let changed = false;
@@ -251,6 +315,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   updateNodeContent: (id, patch) =>
     set((state) => {
+      if (state.readOnly) return state;
       const existing = state.nodes[id];
       if (!existing) return state;
       const next = { ...existing, ...patch };
@@ -262,6 +327,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setNodeColor: (id, color) =>
     set((state) => {
+      if (state.readOnly) return state;
       const existing = state.nodes[id];
       if (!existing) return state;
       return {
@@ -274,6 +340,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   patchNode: (id, patch) =>
     set((state) => {
+      if (state.readOnly) return state;
       const existing = state.nodes[id];
       if (!existing) return state;
       return {
@@ -283,6 +350,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   removeNode: (id) =>
     set((state) => {
+      if (state.readOnly) return state;
       const { [id]: _, ...restNodes } = state.nodes;
       const restConnections = Object.fromEntries(
         Object.entries(state.connections).filter(
@@ -298,6 +366,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   removeNodes: (ids) =>
     set((state) => {
+      if (state.readOnly) return state;
       if (ids.length === 0) return state;
       const drop = new Set(ids);
       const restNodes: Record<string, CanvasNode> = {};
@@ -318,6 +387,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   addConnection: (fromNodeId, toNodeId) => {
+    if (get().readOnly) return null;
     if (fromNodeId === toNodeId) return null;
     const exists = Object.values(get().connections).some(
       (c) => c.fromNodeId === fromNodeId && c.toNodeId === toNodeId,
@@ -335,6 +405,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   removeConnection: (id) =>
     set((state) => {
+      if (state.readOnly) return state;
       const { [id]: _, ...rest } = state.connections;
       return {
         connections: rest,

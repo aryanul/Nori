@@ -8,6 +8,7 @@ import { Toast } from "@/components/ui/Toast";
 import {
   listWorkspaceMembers,
   regenerateInviteToken,
+  regenerateViewToken,
   removeWorkspaceMember,
   type WorkspaceMember,
 } from "@/lib/actions/workspace";
@@ -15,18 +16,25 @@ import {
 type Props = {
   workspaceId: string;
   inviteToken: string;
+  viewToken: string | null;
   open: boolean;
   onClose: () => void;
 };
 
+type Mode = "edit" | "view";
+
 export function ShareModal({
   workspaceId,
-  inviteToken: initialToken,
+  inviteToken: initialInvite,
+  viewToken: initialView,
   open,
   onClose,
 }: Props) {
-  const [token, setToken] = useState(initialToken);
+  const [inviteTokenState, setInviteTokenState] = useState(initialInvite);
+  const [viewTokenState, setViewTokenState] = useState(initialView ?? "");
+  const [mode, setMode] = useState<Mode>("edit");
   const [inviteUrl, setInviteUrl] = useState("");
+  const [viewUrl, setViewUrl] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,14 +43,20 @@ export function ShareModal({
   const [regenPending, startRegen] = useTransition();
 
   useEffect(() => setMounted(true), []);
-  useEffect(() => setToken(initialToken), [initialToken]);
+  useEffect(() => setInviteTokenState(initialInvite), [initialInvite]);
+  useEffect(() => setViewTokenState(initialView ?? ""), [initialView]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     setInviteUrl(
-      `${window.location.origin}/w/${workspaceId}?invite=${token}`,
+      `${window.location.origin}/w/${workspaceId}?invite=${inviteTokenState}`,
     );
-  }, [workspaceId, token]);
+    setViewUrl(
+      viewTokenState
+        ? `${window.location.origin}/w/${workspaceId}?view=${viewTokenState}`
+        : "",
+    );
+  }, [workspaceId, inviteTokenState, viewTokenState]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,12 +82,16 @@ export function ShareModal({
       .finally(() => setLoadingMembers(false));
   }, [open, workspaceId]);
 
+  const activeUrl = mode === "edit" ? inviteUrl : viewUrl;
+
   const onCopy = async () => {
-    if (!inviteUrl) return;
+    if (!activeUrl) return;
     try {
-      await navigator.clipboard.writeText(inviteUrl);
+      await navigator.clipboard.writeText(activeUrl);
       setCopied(true);
-      setToast("Invite link copied");
+      setToast(
+        mode === "edit" ? "Edit link copied" : "View-only link copied",
+      );
     } catch {
       setToast("Couldn't copy — select and copy manually");
     }
@@ -93,12 +111,22 @@ export function ShareModal({
 
   const onRegenerate = () => {
     startRegen(async () => {
-      const res = await regenerateInviteToken(workspaceId);
-      if (res.ok) {
-        setToken(res.token);
-        setToast("New invite link generated. Old links won't work.");
+      if (mode === "edit") {
+        const res = await regenerateInviteToken(workspaceId);
+        if (res.ok) {
+          setInviteTokenState(res.token);
+          setToast("New edit link generated. Old links won't work.");
+        } else {
+          setToast(res.error ?? "Couldn't regenerate link");
+        }
       } else {
-        setToast(res.error ?? "Couldn't regenerate link");
+        const res = await regenerateViewToken(workspaceId);
+        if (res.ok) {
+          setViewTokenState(res.token);
+          setToast("New view-only link generated. Old links won't work.");
+        } else {
+          setToast(res.error ?? "Couldn't regenerate link");
+        }
       }
     });
   };
@@ -139,18 +167,53 @@ export function ShareModal({
                     Share this workspace
                   </h2>
                   <p className="text-xs leading-relaxed text-white/55">
-                    Anyone signed in who opens this link gets added as a member
-                    and can collaborate live.
+                    {mode === "edit"
+                      ? "Anyone signed in who opens this link gets added as a member and can collaborate live."
+                      : "Anyone signed in who opens this link can view the workspace but cannot edit it."}
                   </p>
                 </header>
 
-                <div className="mt-5 space-y-2">
+                {/* Edit / View-only toggle */}
+                <div className="mt-5 inline-flex rounded-lg border border-white/[0.09] bg-white/[0.02] p-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("edit");
+                      setCopied(false);
+                    }}
+                    className={cn(
+                      "rounded-md px-3 py-1 transition-colors",
+                      mode === "edit"
+                        ? "bg-[#7ad7ff]/[0.12] text-[#bde8ff] shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
+                        : "text-white/50 hover:text-white/80",
+                    )}
+                  >
+                    Can edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("view");
+                      setCopied(false);
+                    }}
+                    className={cn(
+                      "rounded-md px-3 py-1 transition-colors",
+                      mode === "view"
+                        ? "bg-amber-300/[0.10] text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,205,122,0.30)]"
+                        : "text-white/50 hover:text-white/80",
+                    )}
+                  >
+                    View only
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
                   <div className="flex items-baseline justify-between">
                     <label
-                      htmlFor="invite-url"
+                      htmlFor="share-url"
                       className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/40"
                     >
-                      Invite link
+                      {mode === "edit" ? "Edit link" : "View-only link"}
                     </label>
                     <button
                       type="button"
@@ -163,9 +226,9 @@ export function ShareModal({
                   </div>
                   <div className="flex gap-2">
                     <input
-                      id="invite-url"
+                      id="share-url"
                       readOnly
-                      value={inviteUrl}
+                      value={activeUrl}
                       onFocus={(e) => e.currentTarget.select()}
                       className="flex-1 cursor-text rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/80 outline-none transition-colors focus:border-white/25"
                     />

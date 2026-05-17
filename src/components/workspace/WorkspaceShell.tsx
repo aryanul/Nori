@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCanvasStore } from "@/store/canvas-store";
 import { useRealtime } from "@/hooks/use-realtime";
 import { InfiniteCanvas } from "@/components/canvas/InfiniteCanvas";
@@ -10,7 +10,10 @@ import { UserMenu } from "@/components/ui/UserMenu";
 import { ShareButton } from "@/components/workspace/ShareButton";
 import { ToolPalette } from "@/components/canvas/ToolPalette";
 import { ShortcutsHelp } from "@/components/canvas/ShortcutsHelp";
+import { CommandPalette } from "@/components/canvas/CommandPalette";
+import { ContextMenu } from "@/components/canvas/ContextMenu";
 import { WorkspaceHotkeys } from "@/components/workspace/WorkspaceHotkeys";
+import { FirstRunTutorial } from "@/components/workspace/FirstRunTutorial";
 import type { WorkspaceSnapshot } from "@/lib/actions/workspace";
 
 type Props = {
@@ -26,6 +29,7 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
       workspaceId: snapshot.id,
       nodes: snapshot.nodes,
       connections: snapshot.connections,
+      readOnly: !snapshot.canEdit,
     });
   }, [snapshot, hydrate]);
 
@@ -42,9 +46,17 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
     snapshot.id,
   );
 
+  // Ref to the world-transform wrapper inside InfiniteCanvas. Used by the
+  // ContextMenu so the export helper can capture the right element.
+  const worldRef = useRef<HTMLDivElement | null>(null);
+
   return (
     <main className="relative h-dvh w-dvw overflow-hidden">
-      <InfiniteCanvas onCursorMove={publishCursor} peers={peers} />
+      <InfiniteCanvas
+        onCursorMove={publishCursor}
+        peers={peers}
+        worldRef={worldRef}
+      />
 
       {/* Top bar — title, share, presence, user */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
@@ -58,6 +70,7 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
             <ShareButton
               workspaceId={snapshot.id}
               inviteToken={snapshot.inviteToken}
+              viewToken={snapshot.viewToken}
             />
           )}
           <PresenceBar self={self} peers={peers} status={status} />
@@ -73,8 +86,20 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
       {/* Keyboard-shortcuts overlay (press ?) */}
       <ShortcutsHelp />
 
+      {/* Cmd+K command palette */}
+      <CommandPalette onUndo={undo} onRedo={redo} />
+
+      {/* Right-click context menu (export / delete) */}
+      <ContextMenu
+        workspaceTitle={snapshot.title}
+        worldWrapperRef={worldRef}
+      />
+
       {/* Document-level hotkeys (undo/redo, Cmd+A, Esc, V/C/S/F) */}
       <WorkspaceHotkeys onUndo={undo} onRedo={redo} />
+
+      {/* First-run tutorial — only shown on first ever workspace visit */}
+      <FirstRunTutorial />
     </main>
   );
 }

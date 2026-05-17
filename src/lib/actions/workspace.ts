@@ -13,6 +13,7 @@ import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
 import {
   userCanAccessWorkspace,
+  userCanEditWorkspace,
   userOwnsWorkspace,
 } from "@/lib/workspace-access";
 import type { CanvasNode, Connection } from "@/types/canvas";
@@ -31,7 +32,9 @@ export type WorkspaceSnapshot = {
   nodes: CanvasNode[];
   connections: Connection[];
   isOwner: boolean;
+  canEdit: boolean;
   inviteToken: string | null;
+  viewToken: string | null;
   memberCount: number;
 };
 
@@ -50,8 +53,56 @@ export async function createWorkspaceAndRedirect(): Promise<never> {
     title: "Untitled workspace",
     ownerId: userId,
     inviteToken: randomUUID(),
+    viewToken: randomUUID(),
   });
   redirect(`/w/${ws._id.toString()}`);
+}
+
+export async function createWorkspaceFromTemplate(
+  templateId: string,
+): Promise<never> {
+  const { getTemplate } = await import("@/lib/templates");
+  const userId = await requireUserId();
+  await connectDB();
+  const tpl = getTemplate(templateId as never);
+  const built = tpl.build();
+
+  const ws = await Workspace.create({
+    title: built.title,
+    ownerId: userId,
+    inviteToken: randomUUID(),
+    viewToken: randomUUID(),
+  });
+  const workspaceId = ws._id;
+
+  if (built.nodes.length > 0) {
+    await NodeModel.insertMany(
+      built.nodes.map((nd) => ({
+        _id: nd.id,
+        workspaceId,
+        kind: nd.kind,
+        x: nd.x,
+        y: nd.y,
+        width: nd.width,
+        height: nd.height,
+        title: nd.title ?? "",
+        body: nd.body ?? "",
+        color: nd.color ?? null,
+      })),
+    );
+  }
+  if (built.connections.length > 0) {
+    await ConnectionModel.insertMany(
+      built.connections.map((cn) => ({
+        _id: cn.id,
+        workspaceId,
+        fromNodeId: cn.fromNodeId,
+        toNodeId: cn.toNodeId,
+      })),
+    );
+  }
+
+  redirect(`/w/${workspaceId.toString()}`);
 }
 
 export async function getWorkspace(
@@ -66,17 +117,27 @@ export async function getWorkspace(
   if (!userCanAccessWorkspace(ws, userId)) return null;
 
   const isOwner = userOwnsWorkspace(ws, userId);
+  const canEdit = userCanEditWorkspace(ws, userId);
 
-  // Lazy-backfill: workspaces created before the members slice don't have an
-  // inviteToken. When the owner opens such a workspace, mint one and persist
-  // so the Share button starts working.
+  // Lazy-backfill: workspaces created before the members/viewers slices
+  // don't have these tokens. When the owner opens such a workspace, mint
+  // them so the Share modal starts working. Owners only — viewers/members
+  // shouldn't be writing back to the document.
   let inviteToken: string | null = ws.inviteToken ?? null;
-  if (isOwner && !inviteToken) {
-    inviteToken = randomUUID();
-    await Workspace.updateOne(
-      { _id: ws._id },
-      { $set: { inviteToken } },
-    );
+  let viewToken: string | null = ws.viewToken ?? null;
+  if (isOwner) {
+    const patch: Record<string, string> = {};
+    if (!inviteToken) {
+      inviteToken = randomUUID();
+      patch.inviteToken = inviteToken;
+    }
+    if (!viewToken) {
+      viewToken = randomUUID();
+      patch.viewToken = viewToken;
+    }
+    if (Object.keys(patch).length > 0) {
+      await Workspace.updateOne({ _id: ws._id }, { $set: patch });
+    }
   }
 
   const [nodes, connections] = await Promise.all([
@@ -110,8 +171,10 @@ export async function getWorkspace(
       toNodeId: c.toNodeId,
     })),
     isOwner,
-    // Only the owner needs the token (to display in the Share modal).
+    canEdit,
+    // Only the owner needs the tokens (to display in the Share modal).
     inviteToken: isOwner ? inviteToken : null,
+    viewToken: isOwner ? viewToken : null,
     memberCount: Array.isArray(ws.members) ? ws.members.length : 0,
   };
 }
@@ -162,8 +225,10 @@ export async function saveWorkspace(
   }
   const workspaceId = new mongoose.Types.ObjectId(id);
   const ws = await Workspace.findById(workspaceId).lean();
-  if (!ws || !userCanAccessWorkspace(ws, userId)) {
-    throw new Error("Workspace not accessible");
+  if (!ws || !userCanEditWorkspace(ws, userId)) {
+    // Viewers (who can read but not write) hit this branch — treated the
+    // same as no-access for the write path.
+    throw new Error("Workspace not editable");
   }
 
   await Promise.all([
@@ -262,6 +327,88 @@ export async function joinWorkspaceByToken(
   return { ok: true, reason: "added" };
 }
 
+/**
+ * Add the current user to a workspace's viewers[] iff the view token matches.
+ * Idempotent. Owner/member status takes precedence — we never demote.
+ */
+export async function joinWorkspaceAsViewer(
+  id: string,
+  token: string,
+): Promise<JoinResult> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return { ok: false, reason: "invalid_id" };
+  }
+  if (!token) return { ok: false, reason: "no_token" };
+
+  const ws = await Workspace.findById(id).lean();
+  if (!ws) return { ok: false, reason: "not_found" };
+
+  if (userOwnsWorkspace(ws, userId)) {
+    return { ok: true, reason: "owner" };
+  }
+
+  if (!ws.viewToken || ws.viewToken !== token) {
+    console.warn(
+      `[joinWorkspaceAsViewer] token mismatch for workspace ${id} ` +
+        `(db: ${ws.viewToken ? `${ws.viewToken.slice(0, 8)}…` : "null"}, ` +
+        `url: ${token.slice(0, 8)}…)`,
+    );
+    return { ok: false, reason: "token_mismatch" };
+  }
+
+  // If they're already an editor (member), don't downgrade.
+  if (userCanEditWorkspace(ws, userId)) {
+    return { ok: true, reason: "already_member" };
+  }
+
+  // If already a viewer, no-op.
+  if (Array.isArray(ws.viewers)) {
+    for (const v of ws.viewers) {
+      if (
+        mongoose.isValidObjectId(v) &&
+        new mongoose.Types.ObjectId(
+          v as string | mongoose.Types.ObjectId,
+        ).equals(userId)
+      ) {
+        return { ok: true, reason: "already_member" };
+      }
+    }
+  }
+
+  await Workspace.updateOne(
+    { _id: ws._id },
+    { $addToSet: { viewers: userId } },
+  );
+
+  return { ok: true, reason: "added" };
+}
+
+export async function regenerateViewToken(
+  workspaceId: string,
+): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(workspaceId)) {
+    return { ok: false, error: "Invalid workspace id" };
+  }
+  const ws = await Workspace.findById(workspaceId).lean();
+  if (!ws) return { ok: false, error: "Workspace not found" };
+  if (!userOwnsWorkspace(ws, userId)) {
+    return {
+      ok: false,
+      error: "Only the owner can regenerate the view link",
+    };
+  }
+  const token = randomUUID();
+  await Workspace.updateOne(
+    { _id: ws._id },
+    { $set: { viewToken: token } },
+  );
+  return { ok: true, token };
+}
+
 export async function listWorkspaceMembers(
   workspaceId: string,
 ): Promise<WorkspaceMember[]> {
@@ -328,6 +475,30 @@ export async function removeWorkspaceMember(
     { $pull: { members: new mongoose.Types.ObjectId(memberId) } },
   );
 
+  return { ok: true };
+}
+
+export async function deleteWorkspace(
+  workspaceId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(workspaceId)) {
+    return { ok: false, error: "Invalid workspace id" };
+  }
+  const ws = await Workspace.findById(workspaceId).lean();
+  if (!ws) return { ok: false, error: "Workspace not found" };
+  if (!userOwnsWorkspace(ws, userId)) {
+    return { ok: false, error: "Only the owner can delete this workspace" };
+  }
+
+  await Promise.all([
+    NodeModel.deleteMany({ workspaceId: ws._id }),
+    ConnectionModel.deleteMany({ workspaceId: ws._id }),
+    Workspace.deleteOne({ _id: ws._id }),
+  ]);
+
+  revalidatePath("/");
   return { ok: true };
 }
 

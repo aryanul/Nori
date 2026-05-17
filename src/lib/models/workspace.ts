@@ -9,7 +9,9 @@ const WorkspaceSchema = new Schema(
       index: true,
     },
     members: { type: [Schema.Types.ObjectId], default: [], index: true },
+    viewers: { type: [Schema.Types.ObjectId], default: [], index: true },
     inviteToken: { type: String, default: null, index: true },
+    viewToken: { type: String, default: null, index: true },
     settings: {
       theme: { type: String, default: "glass" },
       background: { type: String, default: "gradient" },

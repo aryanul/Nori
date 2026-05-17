@@ -12,6 +12,7 @@ export function RemoteCursors({ peers }: Props) {
         return (
           <div
             key={peer.clientId}
+            data-export-skip
             className="pointer-events-none absolute z-10"
             style={{
               left: peer.cursor.x,

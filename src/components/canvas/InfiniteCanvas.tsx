@@ -8,17 +8,23 @@ import { NodeCard } from "./NodeCard";
 import { ConnectionsLayer } from "./ConnectionsLayer";
 import { SelectionRectOverlay } from "./SelectionRectOverlay";
 import { NodeInspector } from "./NodeInspector";
+import { ResizeHandles } from "./ResizeHandles";
 import type { PeerState } from "@/types/realtime";
 import { RemoteCursors } from "./RemoteCursors";
 
 type Props = {
   onCursorMove?: (worldX: number, worldY: number) => void;
   peers?: PeerState[];
+  worldRef?: React.RefObject<HTMLDivElement | null>;
 };
 
 type DragMode = null | "pan" | "rect";
 
-export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
+export function InfiniteCanvas({
+  onCursorMove,
+  peers = [],
+  worldRef: externalWorldRef,
+}: Props) {
   const viewport = useCanvasStore((s) => s.viewport);
   const panBy = useCanvasStore((s) => s.panBy);
   const zoomAt = useCanvasStore((s) => s.zoomAt);
@@ -33,6 +39,9 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
   const removeConnection = useCanvasStore((s) => s.removeConnection);
   const setSelectionRect = useCanvasStore((s) => s.setSelectionRect);
   const commitSelectionRect = useCanvasStore((s) => s.commitSelectionRect);
+  const readOnly = useCanvasStore((s) => s.readOnly);
+  const openContextMenu = useCanvasStore((s) => s.openContextMenu);
+  const closeContextMenu = useCanvasStore((s) => s.closeContextMenu);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dragMode = useRef<DragMode>(null);
@@ -70,12 +79,10 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
 
     // Tool-specific behavior when clicking empty canvas:
-    //   - card / sticky / frame: create that node here, then switch back
-    //     to select tool. (Single-shot creation; sticky-mode would need a
-    //     keyboard modifier to stay.)
-    //   - select + shift: start a rectangle select
-    //   - select (no modifier): pan
-    if (activeTool !== "select") {
+    //   - card / sticky / frame / image / link: create that node here.
+    //   - select + shift: start a rectangle select.
+    //   - select (no modifier): pan.
+    if (activeTool !== "select" && !readOnly) {
       const { wx, wy } = screenToWorld(e.clientX, e.clientY);
       createNode(wx, wy, activeTool);
       setActiveTool("select");
@@ -141,6 +148,7 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
+    if (readOnly) return;
     e.preventDefault();
     dropTextSelection();
     const { wx, wy } = screenToWorld(e.clientX, e.clientY);
@@ -148,6 +156,14 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
     // to a card if we're in select mode.
     createNode(wx, wy, activeTool === "select" ? "card" : activeTool);
     if (activeTool !== "select") setActiveTool("select");
+  };
+
+  // Right-click on empty canvas → "Export workspace" menu. Right-click on a
+  // node is handled by NodeCard so the menu can act on the selection.
+  const onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, "canvas");
   };
 
   useEffect(() => {
@@ -178,6 +194,7 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
   // node so normal text paste still works.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (useCanvasStore.getState().readOnly) return;
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
@@ -237,12 +254,17 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  // Render frames first so they sit behind cards in z-order.
-  const sortedNodes = Object.values(nodes).sort((a, b) => {
-    if (a.kind === "frame" && b.kind !== "frame") return -1;
-    if (a.kind !== "frame" && b.kind === "frame") return 1;
-    return 0;
-  });
+  // Split nodes so frames render *behind* the connections layer and cards
+  // render *above* it. Visual stack (bottom → top):
+  //   1. Grid
+  //   2. Frames        ← translucent regions; can't obscure connection lines
+  //   3. Connections   ← clearly visible over frame surfaces now
+  //   4. Cards         ← drawn on top so connections terminate cleanly at
+  //                      card edges (most of the line is in clear space)
+  //   5. Overlays      (selection rect, resize handles, inspector, cursors)
+  const allNodes = Object.values(nodes);
+  const frameNodes = allNodes.filter((n) => n.kind === "frame");
+  const nonFrameNodes = allNodes.filter((n) => n.kind !== "frame");
 
   const cursorClass =
     activeTool !== "select"
@@ -260,6 +282,7 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
       onPointerCancel={onPointerUp}
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       className={`relative h-full w-full select-none overflow-hidden bg-[var(--bg)] touch-none ${cursorClass}`}
     >
       <CanvasGrid />
@@ -275,6 +298,8 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
       )}
 
       <div
+        ref={externalWorldRef}
+        data-world-wrapper
         className="pointer-events-none absolute inset-0 origin-top-left"
         style={{
           transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
@@ -282,13 +307,25 @@ export function InfiniteCanvas({ onCursorMove, peers = [] }: Props) {
           willChange: "transform",
         }}
       >
-        <ConnectionsLayer />
+        {/* Frames first — they sit behind the connection layer */}
         <AnimatePresence>
-          {sortedNodes.map((node) => (
+          {frameNodes.map((node) => (
             <NodeCard key={node.id} node={node} />
           ))}
         </AnimatePresence>
+
+        {/* Connections render OVER frame surfaces but UNDER cards */}
+        <ConnectionsLayer />
+
+        {/* Cards on top — terminate connections at card edges */}
+        <AnimatePresence>
+          {nonFrameNodes.map((node) => (
+            <NodeCard key={node.id} node={node} />
+          ))}
+        </AnimatePresence>
+
         <SelectionRectOverlay />
+        <ResizeHandles />
         <NodeInspector />
         <RemoteCursors peers={peers} />
       </div>

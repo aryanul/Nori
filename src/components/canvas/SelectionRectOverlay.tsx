@@ -12,6 +12,7 @@ export function SelectionRectOverlay() {
   return (
     <div
       aria-hidden
+      data-export-skip
       className="pointer-events-none absolute rounded-sm border border-[#7ad7ff]/70 bg-[#7ad7ff]/[0.07]"
       style={{ left: x, top: y, width, height }}
     />

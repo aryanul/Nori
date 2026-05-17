@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCanvasStore } from "@/store/canvas-store";
 import { EditableTitle } from "@/components/workspace/EditableTitle";
+import { WorkspaceSettingsMenu } from "@/components/workspace/WorkspaceSettingsMenu";
 
 type Props = {
   workspaceId?: string;
@@ -17,6 +18,7 @@ export function Toolbar({
 }: Props) {
   const scale = useCanvasStore((s) => s.viewport.scale);
   const reset = useCanvasStore((s) => s.resetViewport);
+  const readOnly = useCanvasStore((s) => s.readOnly);
 
   return (
     <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-white/[0.09] bg-[#0a0b10]/85 px-3 py-1.5 text-xs text-white/70 backdrop-blur-xl">
@@ -39,6 +41,17 @@ export function Toolbar({
           {workspaceTitle ?? "Playground"}
         </span>
       )}
+      {readOnly && (
+        <>
+          <span className="h-3.5 w-px bg-white/10" />
+          <span
+            className="rounded-md border border-amber-300/30 bg-amber-300/[0.08] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-amber-200"
+            title="You can view this workspace but not edit it"
+          >
+            View only
+          </span>
+        </>
+      )}
       <span className="h-3.5 w-px bg-white/10" />
       <span className="tabular-nums text-white/45">
         {Math.round(scale * 100)}%
@@ -51,6 +64,16 @@ export function Toolbar({
       >
         Reset
       </button>
+      {workspaceId && (
+        <>
+          <span className="h-3.5 w-px bg-white/10" />
+          <WorkspaceSettingsMenu
+            workspaceId={workspaceId}
+            workspaceTitle={workspaceTitle ?? ""}
+            isOwner={canEditTitle}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { HomeStage } from "@/components/home/HomeStage";
 import {
   createWorkspaceAndRedirect,
+  createWorkspaceFromTemplate,
   listRecentWorkspaces,
 } from "@/lib/actions/workspace";
 
@@ -31,6 +32,7 @@ export default async function Home() {
       recent={recent}
       dbError={dbError}
       createAction={createWorkspaceAndRedirect}
+      createFromTemplateAction={createWorkspaceFromTemplate}
     />
   );
 }

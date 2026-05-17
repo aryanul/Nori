@@ -4,63 +4,69 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCanvasStore } from "@/store/canvas-store";
+import { useOsModifier } from "@/hooks/use-os-modifier";
 
-const SECTIONS: Array<{
+function buildSections(mod: "⌘" | "Ctrl"): Array<{
   title: string;
   items: Array<{ keys: string[]; label: string }>;
-}> = [
-  {
-    title: "Tools",
-    items: [
-      { keys: ["V"], label: "Select tool (default)" },
-      { keys: ["C"], label: "Card tool — text + body" },
-      { keys: ["S"], label: "Sticky tool — body-only post-it" },
-      { keys: ["F"], label: "Frame tool — grouping region" },
-      { keys: ["I"], label: "Image tool — file upload" },
-      { keys: ["L"], label: "Link tool — URL with preview" },
-    ],
-  },
-  {
-    title: "Selection",
-    items: [
-      { keys: ["Click"], label: "Select a node or connection" },
-      { keys: ["Shift", "Click"], label: "Toggle a node in selection" },
-      { keys: ["Shift", "Drag"], label: "Box-select multiple nodes" },
-      { keys: ["⌘", "A"], label: "Select all nodes" },
-      { keys: ["Esc"], label: "Clear selection" },
-    ],
-  },
-  {
-    title: "Editing",
-    items: [
-      { keys: ["Double-click"], label: "Create a node at cursor" },
-      { keys: ["Drag"], label: "Move selection (single or multiple)" },
-      { keys: ["Drag handle"], label: "Connect nodes" },
-      { keys: ["Delete"], label: "Remove selection" },
-      { keys: ["⌘", "Z"], label: "Undo" },
-      { keys: ["⌘", "⇧", "Z"], label: "Redo" },
-    ],
-  },
-  {
-    title: "Canvas",
-    items: [
-      { keys: ["Drag empty"], label: "Pan the canvas" },
-      { keys: ["Scroll"], label: "Zoom toward cursor" },
-      { keys: ["?"], label: "Toggle this overlay" },
-    ],
-  },
-];
+}> {
+  return [
+    {
+      title: "Tools",
+      items: [
+        { keys: ["V"], label: "Select tool (default)" },
+        { keys: ["C"], label: "Card tool — text + body" },
+        { keys: ["S"], label: "Sticky tool — body-only post-it" },
+        { keys: ["F"], label: "Frame tool — grouping region" },
+        { keys: ["I"], label: "Image tool — file upload" },
+        { keys: ["L"], label: "Link tool — URL with preview" },
+      ],
+    },
+    {
+      title: "Selection",
+      items: [
+        { keys: ["Click"], label: "Select a node or connection" },
+        { keys: ["Shift", "Click"], label: "Toggle a node in selection" },
+        { keys: ["Shift", "Drag"], label: "Box-select multiple nodes" },
+        { keys: [mod, "A"], label: "Select all nodes" },
+        { keys: ["Esc"], label: "Clear selection" },
+      ],
+    },
+    {
+      title: "Editing",
+      items: [
+        { keys: ["Double-click"], label: "Create a node at cursor" },
+        { keys: ["Drag"], label: "Move selection (single or multiple)" },
+        { keys: ["Drag handle"], label: "Connect nodes" },
+        { keys: ["Delete"], label: "Remove selection" },
+        { keys: [mod, "Z"], label: "Undo" },
+        { keys: [mod, "⇧", "Z"], label: "Redo" },
+      ],
+    },
+    {
+      title: "Canvas",
+      items: [
+        { keys: [mod, "K"], label: "Open command palette" },
+        { keys: ["Drag empty"], label: "Pan the canvas" },
+        { keys: ["Scroll"], label: "Zoom toward cursor" },
+        { keys: ["?"], label: "Toggle this overlay" },
+      ],
+    },
+  ];
+}
 
 export function ShortcutsHelp() {
   // State and keydown handling now live in WorkspaceHotkeys + the store —
   // ShortcutsHelp is a pure consumer.
   const open = useCanvasStore((s) => s.shortcutsOpen);
   const setShortcutsOpen = useCanvasStore((s) => s.setShortcutsOpen);
+  const mod = useOsModifier();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;
+  const sections = buildSections(mod.symbol);
 
   return createPortal(
     <AnimatePresence>
@@ -94,7 +100,7 @@ export function ShortcutsHelp() {
             </header>
 
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2">
-              {SECTIONS.map((section) => (
+              {sections.map((section) => (
                 <section key={section.title}>
                   <h3 className="mb-2 text-[10px] font-medium uppercase tracking-[0.22em] text-white/45">
                     {section.title}

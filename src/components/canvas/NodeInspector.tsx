@@ -20,7 +20,9 @@ export function NodeInspector() {
   const selectedIds = useCanvasStore((s) => s.selectedNodeIds);
   const nodes = useCanvasStore((s) => s.nodes);
   const setNodeColor = useCanvasStore((s) => s.setNodeColor);
+  const readOnly = useCanvasStore((s) => s.readOnly);
 
+  if (readOnly) return null;
   if (selectedIds.length !== 1) return null;
   const node = nodes[selectedIds[0]];
   if (!node) return null;
@@ -29,6 +31,7 @@ export function NodeInspector() {
 
   return (
     <div
+      data-export-skip
       className="pointer-events-auto absolute flex items-center gap-1 rounded-xl border border-white/[0.09] bg-[#0a0b10]/95 px-2 py-1.5 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]"
       style={{
         left: node.x,

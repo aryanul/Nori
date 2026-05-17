@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 
-type OwnedDoc = {
+type AccessDoc = {
   ownerId?: unknown;
   members?: unknown[];
+  viewers?: unknown[];
 };
 
 function matchesObjectId(
@@ -20,35 +21,57 @@ function matchesObjectId(
   }
 }
 
-/**
- * True when `userId` can read/write the given workspace.
- *
- * Rules:
- *   - Legacy null-owner workspaces (created before auth) are accessible to any
- *     signed-in user until a migration assigns them an owner.
- *   - Owner always has access.
- *   - Anyone listed in `members[]` has access.
- *
- * Used by every access checkpoint — `getWorkspace`, `saveWorkspace`,
- * `/api/realtime-token`, and Hocuspocus's `onAuthenticate`. Keeping the logic
- * here means those four can't drift out of sync.
- */
-export function userCanAccessWorkspace(
-  doc: OwnedDoc,
-  userId: mongoose.Types.ObjectId,
+function listContains(
+  list: unknown[] | undefined,
+  target: mongoose.Types.ObjectId,
 ): boolean {
-  if (doc.ownerId == null) return true;
-  if (matchesObjectId(doc.ownerId, userId)) return true;
-  if (Array.isArray(doc.members)) {
-    for (const m of doc.members) {
-      if (matchesObjectId(m, userId)) return true;
-    }
+  if (!Array.isArray(list)) return false;
+  for (const v of list) {
+    if (matchesObjectId(v, target)) return true;
   }
   return false;
 }
 
+/**
+ * True when `userId` can READ the workspace.
+ *
+ * Rules:
+ *   - Legacy null-owner workspaces (created before auth) are accessible to
+ *     any signed-in user until a migration assigns them an owner.
+ *   - Owner always has access.
+ *   - Anyone in `members[]` (editors) has access.
+ *   - Anyone in `viewers[]` (read-only) has access.
+ */
+export function userCanAccessWorkspace(
+  doc: AccessDoc,
+  userId: mongoose.Types.ObjectId,
+): boolean {
+  if (doc.ownerId == null) return true;
+  if (matchesObjectId(doc.ownerId, userId)) return true;
+  if (listContains(doc.members, userId)) return true;
+  if (listContains(doc.viewers, userId)) return true;
+  return false;
+}
+
+/**
+ * True when `userId` can WRITE to the workspace.
+ *
+ * Viewers can read but not edit — they're explicitly excluded here. Server-
+ * side this is enforced by `saveWorkspace` and by Hocuspocus returning
+ * `readOnly: true` for viewer connections.
+ */
+export function userCanEditWorkspace(
+  doc: AccessDoc,
+  userId: mongoose.Types.ObjectId,
+): boolean {
+  if (doc.ownerId == null) return true;
+  if (matchesObjectId(doc.ownerId, userId)) return true;
+  if (listContains(doc.members, userId)) return true;
+  return false;
+}
+
 export function userOwnsWorkspace(
-  doc: OwnedDoc,
+  doc: AccessDoc,
   userId: mongoose.Types.ObjectId,
 ): boolean {
   return matchesObjectId(doc.ownerId, userId);

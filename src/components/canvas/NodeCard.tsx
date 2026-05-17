@@ -41,6 +41,8 @@ export function NodeCard({ node }: Props) {
     (s) => s.updatePendingConnection,
   );
   const endPendingConnection = useCanvasStore((s) => s.endPendingConnection);
+  const readOnly = useCanvasStore((s) => s.readOnly);
+  const openContextMenu = useCanvasStore((s) => s.openContextMenu);
 
   const [dragging, setDragging] = useState(false);
   const dragStateRef = useRef<{
@@ -101,6 +103,8 @@ export function NodeCard({ node }: Props) {
     }
 
     if (isEditable(e.target)) return;
+    // Viewers can select but never drag.
+    if (readOnly) return;
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     const { wx, wy } = screenToWorld(e.clientX, e.clientY);
     dragStateRef.current = { lastWx: wx, lastWy: wy, moveIds };
@@ -125,6 +129,18 @@ export function NodeCard({ node }: Props) {
     }
     dragStateRef.current = null;
     setDragging(false);
+  };
+
+  // Right-click handler — promotes this node to the selection (if it
+  // isn't already part of it), then opens the context menu at the cursor.
+  const onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const store = useCanvasStore.getState();
+    if (!store.selectedNodeIds.includes(node.id)) {
+      store.selectNodes([node.id]);
+    }
+    openContextMenu(e.clientX, e.clientY, "selection");
   };
 
   const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -173,6 +189,7 @@ export function NodeCard({ node }: Props) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onContextMenu={onContextMenu}
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94 }}
@@ -230,8 +247,9 @@ export function NodeCard({ node }: Props) {
         <CardNodeContent node={node} />
       )}
 
-      {!isFrame && (
+      {!isFrame && !readOnly && (
         <div
+          data-export-skip
           onPointerDown={onHandlePointerDown}
           title="Drag to connect"
           className={cn(
@@ -250,12 +268,14 @@ export function NodeCard({ node }: Props) {
 
 function CardNodeContent({ node }: { node: CanvasNode }) {
   const updateNodeContent = useCanvasStore((s) => s.updateNodeContent);
+  const readOnly = useCanvasStore((s) => s.readOnly);
   return (
     <div className="relative flex h-full flex-col gap-2 p-4">
       <input
         value={node.title ?? ""}
         onChange={(e) => updateNodeContent(node.id, { title: e.target.value })}
         placeholder="Untitled"
+        readOnly={readOnly}
         spellCheck={false}
         className="w-full cursor-text select-text border-none bg-transparent text-sm font-semibold tracking-tight text-white/90 outline-none placeholder:text-white/30"
       />
@@ -263,6 +283,7 @@ function CardNodeContent({ node }: { node: CanvasNode }) {
         value={node.body ?? ""}
         onChange={(e) => updateNodeContent(node.id, { body: e.target.value })}
         placeholder="Add a note…"
+        readOnly={readOnly}
         spellCheck={false}
         className="w-full flex-1 cursor-text select-text resize-none border-none bg-transparent text-xs leading-relaxed text-white/60 outline-none placeholder:text-white/25"
       />
@@ -272,12 +293,14 @@ function CardNodeContent({ node }: { node: CanvasNode }) {
 
 function StickyNodeContent({ node }: { node: CanvasNode }) {
   const updateNodeContent = useCanvasStore((s) => s.updateNodeContent);
+  const readOnly = useCanvasStore((s) => s.readOnly);
   return (
     <div className="relative flex h-full flex-col p-3">
       <textarea
         value={node.body ?? ""}
         onChange={(e) => updateNodeContent(node.id, { body: e.target.value })}
         placeholder="Idea…"
+        readOnly={readOnly}
         spellCheck={false}
         style={{ color: node.color ? "#1a1404" : undefined }}
         className="h-full w-full cursor-text select-text resize-none border-none bg-transparent text-[13px] leading-snug text-yellow-50/95 outline-none placeholder:text-yellow-100/40"
@@ -288,6 +311,7 @@ function StickyNodeContent({ node }: { node: CanvasNode }) {
 
 function FrameNodeContent({ node }: { node: CanvasNode }) {
   const updateNodeContent = useCanvasStore((s) => s.updateNodeContent);
+  const readOnly = useCanvasStore((s) => s.readOnly);
   return (
     <div className="relative flex h-full flex-col">
       <div className="flex items-center gap-1.5 border-b border-white/[0.08] px-3 py-2">
@@ -298,6 +322,7 @@ function FrameNodeContent({ node }: { node: CanvasNode }) {
             updateNodeContent(node.id, { title: e.target.value })
           }
           placeholder="Frame"
+          readOnly={readOnly}
           spellCheck={false}
           className="w-full cursor-text select-text border-none bg-transparent text-[11px] font-medium uppercase tracking-[0.18em] text-white/65 outline-none placeholder:text-white/25"
         />
@@ -309,6 +334,7 @@ function FrameNodeContent({ node }: { node: CanvasNode }) {
 
 function ImageNodeContent({ node }: { node: CanvasNode }) {
   const patchNode = useCanvasStore((s) => s.patchNode);
+  const readOnly = useCanvasStore((s) => s.readOnly);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onFileSelected = async (file: File) => {
@@ -328,6 +354,20 @@ function ImageNodeContent({ node }: { node: CanvasNode }) {
   };
 
   if (!node.src) {
+    if (readOnly) {
+      return (
+        <div className="relative flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-white/35">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+          <p className="text-[10px] uppercase tracking-[0.22em]">
+            Empty image
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="relative flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
         <input
@@ -387,6 +427,7 @@ function ImageNodeContent({ node }: { node: CanvasNode }) {
 
 function LinkNodeContent({ node }: { node: CanvasNode }) {
   const patchNode = useCanvasStore((s) => s.patchNode);
+  const readOnly = useCanvasStore((s) => s.readOnly);
   const [draft, setDraft] = useState(node.url ?? "");
   const [fetching, startFetch] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -418,6 +459,13 @@ function LinkNodeContent({ node }: { node: CanvasNode }) {
 
   // No URL yet → small input prompt
   if (!node.url) {
+    if (readOnly) {
+      return (
+        <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center text-white/35">
+          <p className="text-[10px] uppercase tracking-[0.22em]">Empty link</p>
+        </div>
+      );
+    }
     return (
       <div className="relative flex h-full flex-col justify-center gap-2 p-4">
         <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">

@@ -25,6 +25,7 @@ type Props = {
   recent: Workspace[];
   dbError: string | null;
   createAction: () => Promise<void>;
+  createFromTemplateAction: (templateId: string) => Promise<void>;
 };
 
 const fadeUp: Variants = {
@@ -78,7 +79,39 @@ function CreateButton() {
   );
 }
 
-export function HomeStage({ user, recent, dbError, createAction }: Props) {
+const TEMPLATE_META: Array<{
+  id: string;
+  title: string;
+  description: string;
+  accent: string;
+}> = [
+  {
+    id: "blank",
+    title: "Blank canvas",
+    description: "Start with nothing.",
+    accent: "rgba(255,255,255,0.2)",
+  },
+  {
+    id: "brainstorm",
+    title: "Brainstorm",
+    description: "A topic in the middle, sticky ideas radiating out.",
+    accent: "#f5cd7a",
+  },
+  {
+    id: "roadmap",
+    title: "Project roadmap",
+    description: "Backlog · In progress · Shipped.",
+    accent: "#7ad7ff",
+  },
+];
+
+export function HomeStage({
+  user,
+  recent,
+  dbError,
+  createAction,
+  createFromTemplateAction,
+}: Props) {
   return (
     <main className="no-scrollbar relative z-10 h-dvh w-full overflow-y-auto">
       {/* Top bar */}
@@ -145,6 +178,68 @@ export function HomeStage({ user, recent, dbError, createAction }: Props) {
             <CreateButton />
           </form>
         </motion.div>
+      </motion.section>
+
+      {/* Templates */}
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+        className="mx-auto max-w-6xl px-6 pb-12 md:px-10"
+      >
+        <header className="mb-6 flex items-baseline justify-between border-b border-white/[0.06] pb-3">
+          <h2 className="text-xs font-medium uppercase tracking-[0.24em] text-white/50">
+            Or start with a template
+          </h2>
+          <span className="text-[10px] uppercase tracking-[0.24em] text-white/30">
+            {TEMPLATE_META.length} templates
+          </span>
+        </header>
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] sm:grid-cols-3">
+          {TEMPLATE_META.map((t) => (
+            <form
+              key={t.id}
+              action={createFromTemplateAction.bind(null, t.id)}
+              className="contents"
+            >
+              <button
+                type="submit"
+                className="group relative flex h-full flex-col justify-between gap-6 bg-[#0a0b10] p-5 text-left transition-colors hover:bg-[#0c0d13]"
+              >
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{
+                    backgroundColor: t.accent,
+                    boxShadow: `0 0 8px ${t.accent}66`,
+                  }}
+                />
+                <div>
+                  <h3 className="text-[15px] font-medium leading-tight text-white/92">
+                    {t.title}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-white/45">
+                    {t.description}
+                  </p>
+                </div>
+                <span className="flex size-7 items-center justify-center self-end rounded-full border border-white/10 text-white/60 transition-all group-hover:border-white/30 group-hover:text-white">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </button>
+            </form>
+          ))}
+        </div>
       </motion.section>
 
       {/* Workspaces */}

@@ -8,7 +8,10 @@ import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
 import { verifyRealtimeToken } from "@/lib/realtime/token";
-import { userCanAccessWorkspace } from "@/lib/workspace-access";
+import {
+  userCanAccessWorkspace,
+  userCanEditWorkspace,
+} from "@/lib/workspace-access";
 import type { CanvasNode, Connection } from "@/types/canvas";
 
 const PORT = Number(process.env.HOCUSPOCUS_PORT ?? 1234);
@@ -59,22 +62,20 @@ const server = new Server({
     if (!ws) {
       throw new Error("Workspace not found");
     }
-    if (
-      !userCanAccessWorkspace(
-        ws,
-        new mongoose.Types.ObjectId(payload.userId),
-      )
-    ) {
+    const userObjectId = new mongoose.Types.ObjectId(payload.userId);
+    if (!userCanAccessWorkspace(ws, userObjectId)) {
       console.warn(
         `[Hocuspocus] auth rejected: user ${payload.userId} not a member of workspace ${documentName}`,
       );
       throw new Error("Not authorized for this workspace");
     }
 
+    const canEdit = userCanEditWorkspace(ws, userObjectId);
     console.log(
-      `[Hocuspocus] authed user ${payload.userId} → workspace ${documentName}`,
+      `[Hocuspocus] authed user ${payload.userId} → workspace ${documentName}` +
+        (canEdit ? "" : " (view-only)"),
     );
-    return { userId: payload.userId };
+    return { userId: payload.userId, readOnly: !canEdit };
   },
 
   async onLoadDocument({ document, documentName }) {

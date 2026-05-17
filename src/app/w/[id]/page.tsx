@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import {
   getWorkspace,
+  joinWorkspaceAsViewer,
   joinWorkspaceByToken,
 } from "@/lib/actions/workspace";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
@@ -15,17 +16,23 @@ export default async function WorkspaceRoute(props: PageProps<"/w/[id]">) {
   const session = await auth();
   if (!session?.user) notFound();
 
-  // If the URL carries an invite token, attempt to attach the current user as
-  // a member before loading the workspace. We don't redirect after — the
-  // ?invite= staying in the URL is harmless, and skipping the redirect
-  // eliminates a class of session-timing bugs after sign-in flows.
+  // Edit-invite token. Takes precedence over view token — if both were
+  // somehow on the URL, the user gets the better permission.
   const invite = typeof search.invite === "string" ? search.invite : null;
   if (invite) {
     const result = await joinWorkspaceByToken(id, invite);
     if (!result.ok) {
-      console.warn(
-        `[/w/${id}] invite rejected: ${result.reason}`,
-      );
+      console.warn(`[/w/${id}] invite rejected: ${result.reason}`);
+    }
+  }
+
+  // View-only token. Adds the user as a viewer (read-only) iff they aren't
+  // already a member/owner.
+  const view = typeof search.view === "string" ? search.view : null;
+  if (view) {
+    const result = await joinWorkspaceAsViewer(id, view);
+    if (!result.ok) {
+      console.warn(`[/w/${id}] view rejected: ${result.reason}`);
     }
   }
 

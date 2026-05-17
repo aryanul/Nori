@@ -18,6 +18,7 @@ export function WorkspaceHotkeys({ onUndo, onRedo }: Props) {
   const selectAllNodes = useCanvasStore((s) => s.selectAllNodes);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const toggleShortcuts = useCanvasStore((s) => s.toggleShortcuts);
+  const toggleCommandPalette = useCanvasStore((s) => s.toggleCommandPalette);
   const setShortcutsOpen = useCanvasStore((s) => s.setShortcutsOpen);
 
   useEffect(() => {
@@ -58,6 +59,11 @@ export function WorkspaceHotkeys({ onUndo, onRedo }: Props) {
         return;
       }
 
+      if (cmd && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        toggleCommandPalette();
+        return;
+      }
       if (cmd && (e.key === "a" || e.key === "A")) {
         e.preventDefault();
         selectAllNodes();
@@ -104,6 +110,7 @@ export function WorkspaceHotkeys({ onUndo, onRedo }: Props) {
     clearSelection,
     toggleShortcuts,
     setShortcutsOpen,
+    toggleCommandPalette,
   ]);
 
   return null;

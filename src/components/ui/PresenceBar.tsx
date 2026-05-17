@@ -1,5 +1,6 @@
 "use client";
 
+import { useCanvasStore } from "@/store/canvas-store";
 import type { PeerState, UserIdentity } from "@/types/realtime";
 import type { RealtimeStatus } from "@/hooks/use-realtime";
 
@@ -13,20 +14,33 @@ function Avatar({
   color,
   name,
   size = 20,
+  onClick,
+  active,
 }: {
   color: string;
   name: string;
   size?: number;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const initial = name.trim().slice(0, 1).toUpperCase() || "?";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div
-      className="flex items-center justify-center rounded-full text-[10px] font-semibold text-white/95 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18),0_0_0_2px_#0a0b10]"
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      title={onClick ? `Jump to ${name}` : name}
+      className={
+        "flex items-center justify-center rounded-full text-[10px] font-semibold text-white/95 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18),0_0_0_2px_#0a0b10] " +
+        (onClick
+          ? "cursor-pointer transition-transform hover:scale-110 active:scale-95"
+          : "") +
+        (active ? " ring-1 ring-white/40" : "")
+      }
       style={{ width: size, height: size, backgroundColor: color }}
-      title={name}
     >
       {initial}
-    </div>
+    </Tag>
   );
 }
 
@@ -38,12 +52,12 @@ const STATUS_META: Record<
     label: () => "Connecting",
     dotClass:
       "bg-amber-300/85 shadow-[0_0_8px_rgba(252,211,77,0.55)] animate-pulse",
-    tooltip: "Looking for other peers via WebRTC signaling",
+    tooltip: "Connecting to the sync server",
   },
   live: {
     label: (n) => `${n + 1} live`,
     dotClass: "bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.55)]",
-    tooltip: "Connected — edits sync live",
+    tooltip: "Connected — edits sync live. Click an avatar to jump to them.",
   },
   solo: {
     label: () => "Solo",
@@ -67,6 +81,8 @@ const STATUS_META: Record<
 
 export function PresenceBar({ self, peers, status }: Props) {
   const meta = STATUS_META[status];
+  const flyToPoint = useCanvasStore((s) => s.flyToPoint);
+
   return (
     <div
       className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-white/[0.09] bg-[#0a0b10]/85 px-3 py-1.5 text-xs text-white/65 backdrop-blur-xl"
@@ -84,7 +100,17 @@ export function PresenceBar({ self, peers, status }: Props) {
           <div className="flex -space-x-1.5">
             {self && <Avatar color={self.color} name={self.name} />}
             {peers.slice(0, 4).map((p) => (
-              <Avatar key={p.clientId} color={p.user.color} name={p.user.name} />
+              <Avatar
+                key={p.clientId}
+                color={p.user.color}
+                name={p.user.name}
+                active={!!p.cursor}
+                onClick={
+                  p.cursor
+                    ? () => flyToPoint(p.cursor!.x, p.cursor!.y)
+                    : undefined
+                }
+              />
             ))}
             {peers.length > 4 && (
               <div className="flex size-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-semibold text-white/80 shadow-[0_0_0_2px_#0a0b10]">
