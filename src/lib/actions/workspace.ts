@@ -2,10 +2,12 @@
 
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
+import clientPromise from "@/lib/mongodb-client";
 import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
@@ -14,6 +16,14 @@ import {
   userOwnsWorkspace,
 } from "@/lib/workspace-access";
 import type { CanvasNode, Connection } from "@/types/canvas";
+
+export type WorkspaceMember = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  isOwner: boolean;
+};
 
 export type WorkspaceSnapshot = {
   id: string;
@@ -87,6 +97,12 @@ export async function getWorkspace(
       title: n.title ?? "",
       body: n.body ?? "",
       color: n.color ?? undefined,
+      src: n.src ?? undefined,
+      url: n.url ?? undefined,
+      ogTitle: n.ogTitle ?? undefined,
+      ogDescription: n.ogDescription ?? undefined,
+      ogImage: n.ogImage ?? undefined,
+      ogSite: n.ogSite ?? undefined,
     })),
     connections: connections.map((c) => ({
       id: c._id,
@@ -98,6 +114,40 @@ export async function getWorkspace(
     inviteToken: isOwner ? inviteToken : null,
     memberCount: Array.isArray(ws.members) ? ws.members.length : 0,
   };
+}
+
+export type UpdateTitleResult =
+  | { ok: true; title: string }
+  | { ok: false; error: string };
+
+export async function updateWorkspaceTitle(
+  id: string,
+  title: string,
+): Promise<UpdateTitleResult> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return { ok: false, error: "Invalid workspace id" };
+  }
+
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Title cannot be empty" };
+  }
+  if (trimmed.length > 80) {
+    return { ok: false, error: "Title is too long (80 characters max)" };
+  }
+
+  const ws = await Workspace.findById(id).lean();
+  if (!ws) return { ok: false, error: "Workspace not found" };
+  if (!userOwnsWorkspace(ws, userId)) {
+    return { ok: false, error: "Only the workspace owner can rename it" };
+  }
+
+  await Workspace.updateOne({ _id: ws._id }, { $set: { title: trimmed } });
+  revalidatePath(`/w/${id}`);
+  revalidatePath("/");
+  return { ok: true, title: trimmed };
 }
 
 export async function saveWorkspace(
@@ -134,6 +184,12 @@ export async function saveWorkspace(
         title: n.title ?? "",
         body: n.body ?? "",
         color: n.color ?? null,
+        src: n.src ?? null,
+        url: n.url ?? null,
+        ogTitle: n.ogTitle ?? null,
+        ogDescription: n.ogDescription ?? null,
+        ogImage: n.ogImage ?? null,
+        ogSite: n.ogSite ?? null,
       })),
     );
   }
@@ -204,6 +260,97 @@ export async function joinWorkspaceByToken(
   );
 
   return { ok: true, reason: "added" };
+}
+
+export async function listWorkspaceMembers(
+  workspaceId: string,
+): Promise<WorkspaceMember[]> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(workspaceId)) return [];
+
+  const ws = await Workspace.findById(workspaceId).lean();
+  if (!ws) return [];
+  if (!userCanAccessWorkspace(ws, userId)) return [];
+
+  const memberIds = Array.isArray(ws.members)
+    ? ws.members
+        .map((m) => (mongoose.isValidObjectId(m) ? String(m) : null))
+        .filter((m): m is string => m !== null)
+    : [];
+
+  const ownerIdStr =
+    ws.ownerId && mongoose.isValidObjectId(ws.ownerId)
+      ? String(ws.ownerId)
+      : null;
+
+  const idsToFetch = Array.from(
+    new Set([...(ownerIdStr ? [ownerIdStr] : []), ...memberIds]),
+  );
+  if (idsToFetch.length === 0) return [];
+
+  const client = await clientPromise;
+  const users = client.db("nori").collection("users");
+  const docs = await users
+    .find({ _id: { $in: idsToFetch.map((id) => new ObjectId(id)) } })
+    .toArray();
+
+  return docs.map((d) => ({
+    id: d._id.toString(),
+    name: (d.name as string | undefined) ?? null,
+    email: (d.email as string | undefined) ?? null,
+    image: (d.image as string | undefined) ?? null,
+    isOwner: d._id.toString() === ownerIdStr,
+  }));
+}
+
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  memberId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (
+    !mongoose.Types.ObjectId.isValid(workspaceId) ||
+    !mongoose.Types.ObjectId.isValid(memberId)
+  ) {
+    return { ok: false, error: "Invalid id" };
+  }
+
+  const ws = await Workspace.findById(workspaceId).lean();
+  if (!ws) return { ok: false, error: "Workspace not found" };
+  if (!userOwnsWorkspace(ws, userId)) {
+    return { ok: false, error: "Only the owner can remove members" };
+  }
+
+  await Workspace.updateOne(
+    { _id: ws._id },
+    { $pull: { members: new mongoose.Types.ObjectId(memberId) } },
+  );
+
+  return { ok: true };
+}
+
+export async function regenerateInviteToken(
+  workspaceId: string,
+): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(workspaceId)) {
+    return { ok: false, error: "Invalid workspace id" };
+  }
+  const ws = await Workspace.findById(workspaceId).lean();
+  if (!ws) return { ok: false, error: "Workspace not found" };
+  if (!userOwnsWorkspace(ws, userId)) {
+    return { ok: false, error: "Only the owner can regenerate the link" };
+  }
+
+  const token = randomUUID();
+  await Workspace.updateOne(
+    { _id: ws._id },
+    { $set: { inviteToken: token } },
+  );
+  return { ok: true, token };
 }
 
 export async function listRecentWorkspaces(limit = 10) {

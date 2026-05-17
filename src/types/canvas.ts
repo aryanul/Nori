@@ -4,7 +4,7 @@ export type Viewport = {
   scale: number;
 };
 
-export type NodeKind = "card" | "sticky" | "frame";
+export type NodeKind = "card" | "sticky" | "frame" | "image" | "link";
 
 export type CanvasNode = {
   id: string;
@@ -16,6 +16,16 @@ export type CanvasNode = {
   title?: string;
   body?: string;
   color?: string;
+
+  // Image nodes
+  src?: string;
+
+  // Link nodes
+  url?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogSite?: string;
 };
 
 export type Connection = {

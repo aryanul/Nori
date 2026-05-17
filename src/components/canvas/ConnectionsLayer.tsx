@@ -14,8 +14,8 @@ export function ConnectionsLayer() {
   const nodes = useCanvasStore((s) => s.nodes);
   const connections = useCanvasStore((s) => s.connections);
   const pending = useCanvasStore((s) => s.pendingConnection);
-  const selection = useCanvasStore((s) => s.selection);
-  const select = useCanvasStore((s) => s.select);
+  const selectedConnectionId = useCanvasStore((s) => s.selectedConnectionId);
+  const selectConnection = useCanvasStore((s) => s.selectConnection);
 
   return (
     <svg
@@ -54,8 +54,7 @@ export function ConnectionsLayer() {
         if (!from || !to) return null;
         const a = nodeCenter(from);
         const b = nodeCenter(to);
-        const isSelected =
-          selection?.type === "connection" && selection.id === c.id;
+        const isSelected = selectedConnectionId === c.id;
         const d = bezierPath(a.x, a.y, b.x, b.y);
         return (
           <g key={c.id} className="pointer-events-auto cursor-pointer">
@@ -66,13 +65,15 @@ export function ConnectionsLayer() {
               strokeWidth={16}
               onPointerDown={(e) => {
                 e.stopPropagation();
-                select({ type: "connection", id: c.id });
+                selectConnection(c.id);
               }}
             />
             <path
               d={d}
               fill="none"
-              stroke={isSelected ? "rgba(125, 211, 252, 0.95)" : "rgba(255,255,255,0.45)"}
+              stroke={
+                isSelected ? "rgba(122, 215, 255, 0.95)" : "rgba(255,255,255,0.45)"
+              }
               strokeWidth={isSelected ? 2.5 : 1.5}
               markerEnd="url(#nori-arrow)"
             />

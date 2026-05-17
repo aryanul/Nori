@@ -6,27 +6,26 @@ import { ShareModal } from "./ShareModal";
 type Props = {
   workspaceId: string;
   inviteToken: string;
-  memberCount: number;
 };
 
-export function ShareButton({
-  workspaceId,
-  inviteToken,
-  memberCount,
-}: Props) {
+export function ShareButton({ workspaceId, inviteToken }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-100 backdrop-blur-xl transition-colors hover:bg-sky-400/20"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-xl border border-[#7ad7ff]/35 bg-[#7ad7ff]/[0.07] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-[#bde8ff] backdrop-blur-xl transition-colors hover:border-[#7ad7ff]/55 hover:bg-[#7ad7ff]/[0.12]"
       >
         <svg
           viewBox="0 0 24 24"
-          width="14"
-          height="14"
+          width="12"
+          height="12"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -45,7 +44,6 @@ export function ShareButton({
       <ShareModal
         workspaceId={workspaceId}
         inviteToken={inviteToken}
-        memberCount={memberCount}
         open={open}
         onClose={() => setOpen(false)}
       />

@@ -112,6 +112,12 @@ const server = new Server({
             title: n.title ?? "",
             body: n.body ?? "",
             color: n.color ?? undefined,
+            src: n.src ?? undefined,
+            url: n.url ?? undefined,
+            ogTitle: n.ogTitle ?? undefined,
+            ogDescription: n.ogDescription ?? undefined,
+            ogImage: n.ogImage ?? undefined,
+            ogSite: n.ogSite ?? undefined,
           });
         }
       }
@@ -165,6 +171,12 @@ const server = new Server({
           title: n.title ?? "",
           body: n.body ?? "",
           color: n.color ?? null,
+          src: n.src ?? null,
+          url: n.url ?? null,
+          ogTitle: n.ogTitle ?? null,
+          ogDescription: n.ogDescription ?? null,
+          ogImage: n.ogImage ?? null,
+          ogSite: n.ogSite ?? null,
         })),
       );
     }

@@ -8,6 +8,9 @@ import { Toolbar } from "@/components/ui/Toolbar";
 import { PresenceBar } from "@/components/ui/PresenceBar";
 import { UserMenu } from "@/components/ui/UserMenu";
 import { ShareButton } from "@/components/workspace/ShareButton";
+import { ToolPalette } from "@/components/canvas/ToolPalette";
+import { ShortcutsHelp } from "@/components/canvas/ShortcutsHelp";
+import { WorkspaceHotkeys } from "@/components/workspace/WorkspaceHotkeys";
 import type { WorkspaceSnapshot } from "@/lib/actions/workspace";
 
 type Props = {
@@ -26,9 +29,6 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
     });
   }, [snapshot, hydrate]);
 
-  // Strip the ?invite= query param from the URL once we've rendered the
-  // workspace — the join already happened server-side, no need to keep the
-  // token visible in the address bar.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -38,25 +38,43 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
     }
   }, []);
 
-  const { self, peers, publishCursor, status } = useRealtime(snapshot.id);
+  const { self, peers, publishCursor, status, undo, redo } = useRealtime(
+    snapshot.id,
+  );
 
   return (
     <main className="relative h-dvh w-dvw overflow-hidden">
       <InfiniteCanvas onCursorMove={publishCursor} peers={peers} />
-      <div className="pointer-events-none absolute inset-0 flex items-start justify-between p-4">
-        <Toolbar workspaceTitle={snapshot.title} />
+
+      {/* Top bar — title, share, presence, user */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
+        <Toolbar
+          workspaceId={snapshot.id}
+          workspaceTitle={snapshot.title}
+          canEditTitle={snapshot.isOwner}
+        />
         <div className="flex items-start gap-2">
           {snapshot.isOwner && snapshot.inviteToken && (
             <ShareButton
               workspaceId={snapshot.id}
               inviteToken={snapshot.inviteToken}
-              memberCount={snapshot.memberCount}
             />
           )}
           <PresenceBar self={self} peers={peers} status={status} />
           {viewer && <UserMenu name={viewer.name} image={viewer.image} />}
         </div>
       </div>
+
+      {/* Floating tool palette — bottom center */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+        <ToolPalette />
+      </div>
+
+      {/* Keyboard-shortcuts overlay (press ?) */}
+      <ShortcutsHelp />
+
+      {/* Document-level hotkeys (undo/redo, Cmd+A, Esc, V/C/S/F) */}
+      <WorkspaceHotkeys onUndo={undo} onRedo={redo} />
     </main>
   );
 }

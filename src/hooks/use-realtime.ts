@@ -28,6 +28,8 @@ type UseRealtimeResult = {
   peers: PeerState[];
   publishCursor: RemoteCursorPublisher;
   status: RealtimeStatus;
+  undo: () => void;
+  redo: () => void;
 };
 
 function syncObjectToYMap<T extends { id: string }>(
@@ -86,6 +88,7 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
   const [authFailed, setAuthFailed] = useState(false);
   const entryRef = useRef<RealtimeEntry | null>(null);
   const applyingRemoteRef = useRef(false);
+  const undoManagerRef = useRef<Y.UndoManager | null>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -116,6 +119,14 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
         console.warn("[Nori realtime] provider awareness is null");
         return;
       }
+
+      // Per-user undo stack. We only track operations our client originated
+      // (LOCAL_ORIGIN) — so Ctrl+Z reverses MY edits, not someone else's.
+      const undoManager = new Y.UndoManager([nodesMap, connectionsMap], {
+        trackedOrigins: new Set([LOCAL_ORIGIN]),
+        captureTimeout: 350,
+      });
+      undoManagerRef.current = undoManager;
 
       // 1. Seed Y.Maps from current Zustand state — only if empty
       const currentState = useCanvasStore.getState();
@@ -220,6 +231,8 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
       setReady(true);
 
       teardown = () => {
+        undoManager.destroy();
+        undoManagerRef.current = null;
         nodesMap.unobserve(onNodesChange);
         connectionsMap.unobserve(onConnectionsChange);
         awareness.off("change", onAwarenessChange);
@@ -252,6 +265,9 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
     });
   };
 
+  const undo = () => undoManagerRef.current?.undo();
+  const redo = () => undoManagerRef.current?.redo();
+
   const status: RealtimeStatus = !workspaceId
     ? "offline"
     : authFailed
@@ -264,5 +280,5 @@ export function useRealtime(workspaceId: string | null): UseRealtimeResult {
             ? "solo"
             : "offline";
 
-  return { ready, self, peers, publishCursor, status };
+  return { ready, self, peers, publishCursor, status, undo, redo };
 }

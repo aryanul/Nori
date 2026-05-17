@@ -1,10 +1,12 @@
 import { create } from "zustand";
-import type { CanvasNode, Connection, NodeKind, Viewport } from "@/types/canvas";
+import type {
+  CanvasNode,
+  Connection,
+  NodeKind,
+  Viewport,
+} from "@/types/canvas";
 
-export type Selection =
-  | { type: "node"; id: string }
-  | { type: "connection"; id: string }
-  | null;
+export type Tool = "select" | "card" | "sticky" | "frame" | "image" | "link";
 
 export type PendingConnection = {
   fromNodeId: string;
@@ -12,13 +14,24 @@ export type PendingConnection = {
   toY: number;
 } | null;
 
+export type SelectionRect = {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+} | null;
+
 type CanvasState = {
   workspaceId: string | null;
   viewport: Viewport;
   nodes: Record<string, CanvasNode>;
   connections: Record<string, Connection>;
-  selection: Selection;
+  selectedNodeIds: string[];
+  selectedConnectionId: string | null;
   pendingConnection: PendingConnection;
+  selectionRect: SelectionRect;
+  activeTool: Tool;
+  shortcutsOpen: boolean;
 
   hydrate: (snapshot: {
     workspaceId: string;
@@ -37,17 +50,34 @@ type CanvasState = {
   zoomAt: (factor: number, clientX: number, clientY: number) => void;
   resetViewport: () => void;
 
+  setActiveTool: (tool: Tool) => void;
+  toggleShortcuts: () => void;
+  setShortcutsOpen: (open: boolean) => void;
+
   createNode: (x: number, y: number, kind?: NodeKind) => string;
   addNode: (node: CanvasNode) => void;
   moveNode: (id: string, x: number, y: number) => void;
-  updateNodeContent: (id: string, patch: { title?: string; body?: string }) => void;
+  moveNodesBy: (ids: string[], dx: number, dy: number) => void;
+  updateNodeContent: (
+    id: string,
+    patch: { title?: string; body?: string },
+  ) => void;
+  setNodeColor: (id: string, color: string | null) => void;
+  patchNode: (id: string, patch: Partial<CanvasNode>) => void;
   removeNode: (id: string) => void;
+  removeNodes: (ids: string[]) => void;
 
   addConnection: (fromNodeId: string, toNodeId: string) => string | null;
   removeConnection: (id: string) => void;
 
-  select: (selection: Selection) => void;
+  selectNodes: (ids: string[]) => void;
+  toggleNodeInSelection: (id: string) => void;
+  selectConnection: (id: string | null) => void;
+  selectAllNodes: () => void;
   clearSelection: () => void;
+
+  setSelectionRect: (rect: SelectionRect) => void;
+  commitSelectionRect: (additive: boolean) => void;
 
   startPendingConnection: (fromNodeId: string, x: number, y: number) => void;
   updatePendingConnection: (x: number, y: number) => void;
@@ -64,10 +94,15 @@ const nextId = (prefix: string) => {
   return `${prefix}_${Date.now().toString(36)}_${idCounter}`;
 };
 
-const NODE_DEFAULTS: Record<NodeKind, { width: number; height: number; color?: string }> = {
+const NODE_DEFAULTS: Record<
+  NodeKind,
+  { width: number; height: number; color?: string }
+> = {
   card: { width: 240, height: 140 },
-  sticky: { width: 200, height: 200, color: "#facc15" },
-  frame: { width: 360, height: 240 },
+  sticky: { width: 180, height: 180, color: "#f5cd7a" },
+  frame: { width: 480, height: 320 },
+  image: { width: 280, height: 200 },
+  link: { width: 320, height: 140 },
 };
 
 const seedNodes: CanvasNode[] = [
@@ -79,7 +114,7 @@ const seedNodes: CanvasNode[] = [
     width: 240,
     height: 140,
     title: "Welcome to Nori",
-    body: "Double-click empty space to create a node. Shift-drag from a node edge to connect them.",
+    body: "Double-click empty space to create a node. Shift+drag to box-select. Press ? for shortcuts.",
   },
   {
     id: "n2",
@@ -90,39 +125,53 @@ const seedNodes: CanvasNode[] = [
     height: 200,
     title: "Sticky idea",
     body: "Spatial workspace primitive.",
-    color: "#facc15",
+    color: "#f5cd7a",
   },
 ];
 
 const seedConnections: Connection[] = [];
+
+function rectIntersectsNode(
+  rect: { x: number; y: number; width: number; height: number },
+  node: CanvasNode,
+): boolean {
+  return !(
+    rect.x + rect.width < node.x ||
+    rect.y + rect.height < node.y ||
+    rect.x > node.x + node.width ||
+    rect.y > node.y + node.height
+  );
+}
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   workspaceId: null,
   viewport: INITIAL_VIEWPORT,
   nodes: Object.fromEntries(seedNodes.map((n) => [n.id, n])),
   connections: Object.fromEntries(seedConnections.map((c) => [c.id, c])),
-  selection: null,
+  selectedNodeIds: [],
+  selectedConnectionId: null,
   pendingConnection: null,
+  selectionRect: null,
+  activeTool: "select",
+  shortcutsOpen: false,
 
   hydrate: ({ workspaceId, nodes, connections }) =>
     set({
       workspaceId,
       nodes: Object.fromEntries(nodes.map((n) => [n.id, n])),
       connections: Object.fromEntries(connections.map((c) => [c.id, c])),
-      selection: null,
+      selectedNodeIds: [],
+      selectedConnectionId: null,
       pendingConnection: null,
+      selectionRect: null,
       viewport: INITIAL_VIEWPORT,
     }),
 
-  replaceCanvasState: (nodes, connections) =>
-    set({ nodes, connections }),
-
+  replaceCanvasState: (nodes, connections) => set({ nodes, connections }),
   replaceNodes: (nodes) => set({ nodes }),
-
   replaceConnections: (connections) => set({ connections }),
 
   setViewport: (v) => set({ viewport: v }),
-
   panBy: (dx, dy) =>
     set((state) => ({
       viewport: {
@@ -131,11 +180,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         y: state.viewport.y + dy,
       },
     })),
-
   zoomAt: (factor, clientX, clientY) =>
     set((state) => {
       const { x, y, scale } = state.viewport;
-      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+      const nextScale = Math.min(
+        MAX_SCALE,
+        Math.max(MIN_SCALE, scale * factor),
+      );
       const k = nextScale / scale;
       return {
         viewport: {
@@ -145,8 +196,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         },
       };
     }),
-
   resetViewport: () => set({ viewport: INITIAL_VIEWPORT }),
+
+  setActiveTool: (tool) => set({ activeTool: tool }),
+  toggleShortcuts: () =>
+    set((state) => ({ shortcutsOpen: !state.shortcutsOpen })),
+  setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
 
   createNode: (x, y, kind = "card") => {
     const id = nextId("n");
@@ -164,7 +219,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     };
     set((state) => ({
       nodes: { ...state.nodes, [id]: node },
-      selection: { type: "node", id },
+      selectedNodeIds: [id],
+      selectedConnectionId: null,
     }));
     return id;
   },
@@ -179,6 +235,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { nodes: { ...state.nodes, [id]: { ...existing, x, y } } };
     }),
 
+  moveNodesBy: (ids, dx, dy) =>
+    set((state) => {
+      if (ids.length === 0 || (dx === 0 && dy === 0)) return state;
+      const nextNodes = { ...state.nodes };
+      let changed = false;
+      for (const id of ids) {
+        const n = nextNodes[id];
+        if (!n) continue;
+        nextNodes[id] = { ...n, x: n.x + dx, y: n.y + dy };
+        changed = true;
+      }
+      return changed ? { nodes: nextNodes } : state;
+    }),
+
   updateNodeContent: (id, patch) =>
     set((state) => {
       const existing = state.nodes[id];
@@ -190,6 +260,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { nodes: { ...state.nodes, [id]: next } };
     }),
 
+  setNodeColor: (id, color) =>
+    set((state) => {
+      const existing = state.nodes[id];
+      if (!existing) return state;
+      return {
+        nodes: {
+          ...state.nodes,
+          [id]: { ...existing, color: color ?? undefined },
+        },
+      };
+    }),
+
+  patchNode: (id, patch) =>
+    set((state) => {
+      const existing = state.nodes[id];
+      if (!existing) return state;
+      return {
+        nodes: { ...state.nodes, [id]: { ...existing, ...patch } },
+      };
+    }),
+
   removeNode: (id) =>
     set((state) => {
       const { [id]: _, ...restNodes } = state.nodes;
@@ -198,11 +289,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ([, c]) => c.fromNodeId !== id && c.toNodeId !== id,
         ),
       );
-      const selection =
-        state.selection?.type === "node" && state.selection.id === id
-          ? null
-          : state.selection;
-      return { nodes: restNodes, connections: restConnections, selection };
+      return {
+        nodes: restNodes,
+        connections: restConnections,
+        selectedNodeIds: state.selectedNodeIds.filter((sid) => sid !== id),
+      };
+    }),
+
+  removeNodes: (ids) =>
+    set((state) => {
+      if (ids.length === 0) return state;
+      const drop = new Set(ids);
+      const restNodes: Record<string, CanvasNode> = {};
+      for (const [k, v] of Object.entries(state.nodes)) {
+        if (!drop.has(k)) restNodes[k] = v;
+      }
+      const restConnections: Record<string, Connection> = {};
+      for (const [k, c] of Object.entries(state.connections)) {
+        if (!drop.has(c.fromNodeId) && !drop.has(c.toNodeId)) {
+          restConnections[k] = c;
+        }
+      }
+      return {
+        nodes: restNodes,
+        connections: restConnections,
+        selectedNodeIds: state.selectedNodeIds.filter((id) => !drop.has(id)),
+      };
     }),
 
   addConnection: (fromNodeId, toNodeId) => {
@@ -224,15 +336,67 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   removeConnection: (id) =>
     set((state) => {
       const { [id]: _, ...rest } = state.connections;
-      const selection =
-        state.selection?.type === "connection" && state.selection.id === id
-          ? null
-          : state.selection;
-      return { connections: rest, selection };
+      return {
+        connections: rest,
+        selectedConnectionId:
+          state.selectedConnectionId === id ? null : state.selectedConnectionId,
+      };
     }),
 
-  select: (selection) => set({ selection }),
-  clearSelection: () => set({ selection: null }),
+  selectNodes: (ids) =>
+    set({ selectedNodeIds: ids, selectedConnectionId: null }),
+
+  toggleNodeInSelection: (id) =>
+    set((state) => {
+      const has = state.selectedNodeIds.includes(id);
+      return {
+        selectedNodeIds: has
+          ? state.selectedNodeIds.filter((sid) => sid !== id)
+          : [...state.selectedNodeIds, id],
+        selectedConnectionId: null,
+      };
+    }),
+
+  selectConnection: (id) =>
+    set({ selectedConnectionId: id, selectedNodeIds: [] }),
+
+  selectAllNodes: () =>
+    set((state) => ({
+      selectedNodeIds: Object.keys(state.nodes),
+      selectedConnectionId: null,
+    })),
+
+  clearSelection: () =>
+    set({ selectedNodeIds: [], selectedConnectionId: null }),
+
+  setSelectionRect: (rect) => set({ selectionRect: rect }),
+
+  commitSelectionRect: (additive) => {
+    const state = get();
+    const rect = state.selectionRect;
+    if (!rect) return;
+    const x = Math.min(rect.startX, rect.endX);
+    const y = Math.min(rect.startY, rect.endY);
+    const width = Math.abs(rect.endX - rect.startX);
+    const height = Math.abs(rect.endY - rect.startY);
+    if (width < 2 && height < 2) {
+      set({ selectionRect: null });
+      return;
+    }
+    const hitIds: string[] = [];
+    const probe = { x, y, width, height };
+    for (const node of Object.values(state.nodes)) {
+      if (rectIntersectsNode(probe, node)) hitIds.push(node.id);
+    }
+    const next = additive
+      ? Array.from(new Set([...state.selectedNodeIds, ...hitIds]))
+      : hitIds;
+    set({
+      selectedNodeIds: next,
+      selectedConnectionId: null,
+      selectionRect: null,
+    });
+  },
 
   startPendingConnection: (fromNodeId, x, y) =>
     set({ pendingConnection: { fromNodeId, toX: x, toY: y } }),

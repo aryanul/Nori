@@ -11,7 +11,7 @@ const NodeSchema = new Schema(
     },
     kind: {
       type: String,
-      enum: ["card", "sticky", "frame"],
+      enum: ["card", "sticky", "frame", "image", "link"],
       required: true,
       default: "card",
     },
@@ -22,6 +22,16 @@ const NodeSchema = new Schema(
     title: { type: String, default: "" },
     body: { type: String, default: "" },
     color: { type: String, default: null },
+
+    // Image nodes
+    src: { type: String, default: null },
+
+    // Link nodes
+    url: { type: String, default: null },
+    ogTitle: { type: String, default: null },
+    ogDescription: { type: String, default: null },
+    ogImage: { type: String, default: null },
+    ogSite: { type: String, default: null },
   },
   { timestamps: true, _id: false },
 );
