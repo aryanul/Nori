@@ -102,6 +102,7 @@ export function WorkspaceHotkeys({ onUndo, onRedo }: Props) {
           f: "frame",
           i: "image",
           l: "link",
+          d: "draw",
         };
         const next = map[e.key.toLowerCase()];
         if (next) {

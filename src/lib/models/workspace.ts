@@ -12,6 +12,7 @@ const WorkspaceSchema = new Schema(
     viewers: { type: [Schema.Types.ObjectId], default: [], index: true },
     inviteToken: { type: String, default: null, index: true },
     viewToken: { type: String, default: null, index: true },
+    templateId: { type: String, default: null },
     settings: {
       theme: { type: String, default: "glass" },
       background: { type: String, default: "gradient" },

@@ -8,12 +8,20 @@ import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
 import { ThreadModel } from "@/lib/models/thread";
+import { ActivityModel } from "@/lib/models/activity";
 import { verifyRealtimeToken } from "@/lib/realtime/token";
 import {
   userCanAccessWorkspace,
   userCanEditWorkspace,
 } from "@/lib/workspace-access";
-import type { CanvasNode, Connection, NodeThread } from "@/types/canvas";
+import type {
+  ActivityEvent,
+  CanvasNode,
+  Connection,
+  NodeThread,
+} from "@/types/canvas";
+
+const ACTIVITY_CAP = 200;
 
 // Render injects PORT; Fly used HOCUSPOCUS_PORT; locally we default to 1234.
 const PORT = Number(
@@ -96,15 +104,20 @@ const server = new Server({
       return;
     }
 
-    const [nodes, connections, threads] = await Promise.all([
+    const [nodes, connections, threads, activities] = await Promise.all([
       NodeModel.find({ workspaceId }).lean(),
       ConnectionModel.find({ workspaceId }).lean(),
       ThreadModel.find({ workspaceId }).lean(),
+      ActivityModel.find({ workspaceId })
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_CAP)
+        .lean(),
     ]);
 
     const nodesMap = document.getMap<CanvasNode>("nodes");
     const connectionsMap = document.getMap<Connection>("connections");
     const threadsMap = document.getMap<NodeThread>("threads");
+    const activitiesMap = document.getMap<ActivityEvent>("activities");
 
     document.transact(() => {
       for (const n of nodes) {
@@ -125,6 +138,10 @@ const server = new Server({
             ogDescription: n.ogDescription ?? undefined,
             ogImage: n.ogImage ?? undefined,
             ogSite: n.ogSite ?? undefined,
+            points: Array.isArray(n.points) ? (n.points as number[]) : undefined,
+            strokeColor: n.strokeColor ?? undefined,
+            strokeWidth:
+              typeof n.strokeWidth === "number" ? n.strokeWidth : undefined,
           });
         }
       }
@@ -156,10 +173,26 @@ const server = new Server({
           });
         }
       }
+      for (const a of activities) {
+        if (!activitiesMap.has(a._id)) {
+          activitiesMap.set(a._id, {
+            id: a._id,
+            kind: a.kind as ActivityEvent["kind"],
+            actorId: a.actorId,
+            actorName: a.actorName ?? "",
+            actorColor: a.actorColor ?? "#7ad7ff",
+            targetNodeId: a.targetNodeId ?? undefined,
+            targetLabel: a.targetLabel ?? undefined,
+            targetNodeKind:
+              (a.targetNodeKind as ActivityEvent["targetNodeKind"]) ?? undefined,
+            createdAt: a.createdAt,
+          });
+        }
+      }
     });
 
     console.log(
-      `[Hocuspocus] Loaded workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads`,
+      `[Hocuspocus] Loaded workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads, ${activities.length} activities`,
     );
   },
 
@@ -171,6 +204,7 @@ const server = new Server({
     const nodesMap = document.getMap<CanvasNode>("nodes");
     const connectionsMap = document.getMap<Connection>("connections");
     const threadsMap = document.getMap<NodeThread>("threads");
+    const activitiesMap = document.getMap<ActivityEvent>("activities");
 
     const nodes: CanvasNode[] = [];
     nodesMap.forEach((value) => nodes.push(value));
@@ -181,12 +215,26 @@ const server = new Server({
     const threads: NodeThread[] = [];
     threadsMap.forEach((value) => threads.push(value));
 
+    // Cap activity feed to most-recent ACTIVITY_CAP — prune client-shared map
+    // in the same transaction so the cap is visible to all peers.
+    const activities: ActivityEvent[] = [];
+    activitiesMap.forEach((value) => activities.push(value));
+    activities.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (activities.length > ACTIVITY_CAP) {
+      const drop = activities.slice(0, activities.length - ACTIVITY_CAP);
+      document.transact(() => {
+        for (const a of drop) activitiesMap.delete(a.id);
+      });
+      activities.splice(0, drop.length);
+    }
+
     // Coarse-grained replace, consistent with the prior manual-save behavior.
     // Switching to fine-grained upserts (via document events) is a follow-up.
     await Promise.all([
       NodeModel.deleteMany({ workspaceId }),
       ConnectionModel.deleteMany({ workspaceId }),
       ThreadModel.deleteMany({ workspaceId }),
+      ActivityModel.deleteMany({ workspaceId }),
     ]);
 
     if (nodes.length) {
@@ -208,6 +256,10 @@ const server = new Server({
           ogDescription: n.ogDescription ?? null,
           ogImage: n.ogImage ?? null,
           ogSite: n.ogSite ?? null,
+          points: Array.isArray(n.points) ? n.points : undefined,
+          strokeColor: n.strokeColor ?? null,
+          strokeWidth:
+            typeof n.strokeWidth === "number" ? n.strokeWidth : null,
         })),
       );
     }
@@ -242,13 +294,30 @@ const server = new Server({
       );
     }
 
+    if (activities.length) {
+      await ActivityModel.insertMany(
+        activities.map((a) => ({
+          _id: a.id,
+          workspaceId,
+          kind: a.kind,
+          actorId: a.actorId,
+          actorName: a.actorName ?? "",
+          actorColor: a.actorColor ?? "#7ad7ff",
+          targetNodeId: a.targetNodeId ?? null,
+          targetLabel: a.targetLabel ?? null,
+          targetNodeKind: a.targetNodeKind ?? null,
+          createdAt: a.createdAt,
+        })),
+      );
+    }
+
     await Workspace.updateOne(
       { _id: workspaceId },
       { $set: { updatedAt: new Date() } },
     );
 
     console.log(
-      `[Hocuspocus] Stored workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads`,
+      `[Hocuspocus] Stored workspace ${documentName} — ${nodes.length} nodes, ${connections.length} connections, ${threads.length} threads, ${activities.length} activities`,
     );
   },
 });

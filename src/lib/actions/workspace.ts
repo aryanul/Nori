@@ -12,12 +12,14 @@ import { Workspace } from "@/lib/models/workspace";
 import { NodeModel } from "@/lib/models/node";
 import { ConnectionModel } from "@/lib/models/connection";
 import { ThreadModel } from "@/lib/models/thread";
+import { ActivityModel } from "@/lib/models/activity";
 import {
   userCanAccessWorkspace,
   userCanEditWorkspace,
   userOwnsWorkspace,
 } from "@/lib/workspace-access";
 import type {
+  ActivityEvent,
   CanvasNode,
   Connection,
   NodeThread,
@@ -34,9 +36,11 @@ export type WorkspaceMember = {
 export type WorkspaceSnapshot = {
   id: string;
   title: string;
+  templateId: string | null;
   nodes: CanvasNode[];
   connections: Connection[];
   threads: NodeThread[];
+  activities: ActivityEvent[];
   isOwner: boolean;
   canEdit: boolean;
   inviteToken: string | null;
@@ -78,6 +82,7 @@ export async function createWorkspaceFromTemplate(
     ownerId: userId,
     inviteToken: randomUUID(),
     viewToken: randomUUID(),
+    templateId,
   });
   const workspaceId = ws._id;
 
@@ -146,15 +151,20 @@ export async function getWorkspace(
     }
   }
 
-  const [nodes, connections, threads] = await Promise.all([
+  const [nodes, connections, threads, activities] = await Promise.all([
     NodeModel.find({ workspaceId: ws._id }).lean(),
     ConnectionModel.find({ workspaceId: ws._id }).lean(),
     ThreadModel.find({ workspaceId: ws._id }).lean(),
+    ActivityModel.find({ workspaceId: ws._id })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean(),
   ]);
 
   return {
     id: ws._id.toString(),
     title: ws.title,
+    templateId: (ws as { templateId?: string | null }).templateId ?? null,
     nodes: nodes.map((n) => ({
       id: n._id,
       kind: n.kind as CanvasNode["kind"],
@@ -171,6 +181,10 @@ export async function getWorkspace(
       ogDescription: n.ogDescription ?? undefined,
       ogImage: n.ogImage ?? undefined,
       ogSite: n.ogSite ?? undefined,
+      points: Array.isArray(n.points) ? (n.points as number[]) : undefined,
+      strokeColor: n.strokeColor ?? undefined,
+      strokeWidth:
+        typeof n.strokeWidth === "number" ? n.strokeWidth : undefined,
     })),
     connections: connections.map((c) => ({
       id: c._id,
@@ -191,6 +205,18 @@ export async function getWorkspace(
       resolved: t.resolved ?? false,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
+    })),
+    activities: activities.map((a) => ({
+      id: a._id,
+      kind: a.kind as ActivityEvent["kind"],
+      actorId: a.actorId,
+      actorName: a.actorName ?? "",
+      actorColor: a.actorColor ?? "#7ad7ff",
+      targetNodeId: a.targetNodeId ?? undefined,
+      targetLabel: a.targetLabel ?? undefined,
+      targetNodeKind:
+        (a.targetNodeKind as ActivityEvent["targetNodeKind"]) ?? undefined,
+      createdAt: a.createdAt,
     })),
     isOwner,
     canEdit,
@@ -278,6 +304,10 @@ export async function saveWorkspace(
         ogDescription: n.ogDescription ?? null,
         ogImage: n.ogImage ?? null,
         ogSite: n.ogSite ?? null,
+        points: Array.isArray(n.points) ? n.points : undefined,
+        strokeColor: n.strokeColor ?? null,
+        strokeWidth:
+          typeof n.strokeWidth === "number" ? n.strokeWidth : null,
       })),
     );
   }
@@ -519,6 +549,7 @@ export async function deleteWorkspace(
     NodeModel.deleteMany({ workspaceId: ws._id }),
     ConnectionModel.deleteMany({ workspaceId: ws._id }),
     ThreadModel.deleteMany({ workspaceId: ws._id }),
+    ActivityModel.deleteMany({ workspaceId: ws._id }),
     Workspace.deleteOne({ _id: ws._id }),
   ]);
 

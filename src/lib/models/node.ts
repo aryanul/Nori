@@ -11,7 +11,7 @@ const NodeSchema = new Schema(
     },
     kind: {
       type: String,
-      enum: ["card", "sticky", "frame", "image", "link"],
+      enum: ["card", "sticky", "frame", "image", "link", "drawing"],
       required: true,
       default: "card",
     },
@@ -32,6 +32,11 @@ const NodeSchema = new Schema(
     ogDescription: { type: String, default: null },
     ogImage: { type: String, default: null },
     ogSite: { type: String, default: null },
+
+    // Drawing nodes
+    points: { type: [Number], default: undefined },
+    strokeColor: { type: String, default: null },
+    strokeWidth: { type: Number, default: null },
   },
   { timestamps: true, _id: false },
 );

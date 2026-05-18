@@ -12,6 +12,7 @@ import { ToolPalette } from "@/components/canvas/ToolPalette";
 import { ShortcutsHelp } from "@/components/canvas/ShortcutsHelp";
 import { CommandPalette } from "@/components/canvas/CommandPalette";
 import { ContextMenu } from "@/components/canvas/ContextMenu";
+import { ActivityPanel } from "@/components/canvas/ActivityPanel";
 import { WorkspaceHotkeys } from "@/components/workspace/WorkspaceHotkeys";
 import { FirstRunTutorial } from "@/components/workspace/FirstRunTutorial";
 import { SyncOverlay } from "@/components/workspace/SyncOverlay";
@@ -30,6 +31,8 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
       workspaceId: snapshot.id,
       nodes: snapshot.nodes,
       connections: snapshot.connections,
+      threads: snapshot.threads,
+      activities: snapshot.activities,
       readOnly: !snapshot.canEdit,
     });
   }, [snapshot, hydrate]);
@@ -100,8 +103,14 @@ export function WorkspaceShell({ snapshot, viewer }: Props) {
       {/* Document-level hotkeys (undo/redo, Cmd+A, Esc, V/C/S/F) */}
       <WorkspaceHotkeys onUndo={undo} onRedo={redo} />
 
-      {/* First-run tutorial — only shown on first ever workspace visit */}
-      <FirstRunTutorial />
+      {/* Floating activity feed (toggle from Toolbar) */}
+      <ActivityPanel />
+
+      {/* First-run tutorial — once per workspace */}
+      <FirstRunTutorial
+        workspaceId={snapshot.id}
+        templateId={snapshot.templateId}
+      />
 
       {/* Full-screen blocker while the sync server is unreachable. Render's
           free tier cold-starts the WS container; this keeps users from

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant pointer-coarse (@media (pointer: coarse));
 
 /* ─── Tokens ──────────────────────────────────────────────────────────────
    Every component should consume these via `bg-[var(--...)]` and friends.

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type {
+  ActivityEvent,
+  ActivityKind,
   CanvasNode,
   Connection,
   NodeKind,
@@ -8,7 +10,22 @@ import type {
   Viewport,
 } from "@/types/canvas";
 
-export type Tool = "select" | "card" | "sticky" | "frame" | "image" | "link";
+export type Tool =
+  | "select"
+  | "card"
+  | "sticky"
+  | "frame"
+  | "image"
+  | "link"
+  | "draw";
+
+const ACTIVITY_CAP = 200;
+
+export type ActivityActor = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 export type PendingConnection = {
   fromNodeId: string;
@@ -41,6 +58,7 @@ type CanvasState = {
   nodes: Record<string, CanvasNode>;
   connections: Record<string, Connection>;
   threads: Record<string, NodeThread>;
+  activities: Record<string, ActivityEvent>;
   selectedNodeIds: string[];
   selectedConnectionId: string | null;
   pendingConnection: PendingConnection;
@@ -48,19 +66,28 @@ type CanvasState = {
   activeTool: Tool;
   shortcutsOpen: boolean;
   commandPaletteOpen: boolean;
+  activityPanelOpen: boolean;
   // Which node's thread panel is currently open (null = none).
   openThreadNodeId: string | null;
   readOnly: boolean;
   contextMenu: ContextMenuState;
+  // Identity of the local user — set by useRealtime so action sites can
+  // attribute activity events.
+  currentActor: ActivityActor | null;
 
   hydrate: (snapshot: {
     workspaceId: string;
     nodes: CanvasNode[];
     connections: Connection[];
     threads?: NodeThread[];
+    activities?: ActivityEvent[];
     readOnly?: boolean;
   }) => void;
   setReadOnly: (readOnly: boolean) => void;
+  setCurrentActor: (actor: ActivityActor | null) => void;
+  replaceActivities: (activities: Record<string, ActivityEvent>) => void;
+  toggleActivityPanel: () => void;
+  setActivityPanelOpen: (open: boolean) => void;
   openContextMenu: (
     screenX: number,
     screenY: number,
@@ -102,6 +129,11 @@ type CanvasState = {
   setCommandPaletteOpen: (open: boolean) => void;
 
   createNode: (x: number, y: number, kind?: NodeKind) => string;
+  createDrawingNode: (
+    worldPoints: number[],
+    strokeColor: string,
+    strokeWidth: number,
+  ) => string | null;
   addNode: (node: CanvasNode) => void;
   moveNode: (id: string, x: number, y: number) => void;
   moveNodesBy: (ids: string[], dx: number, dy: number) => void;
@@ -150,7 +182,13 @@ const NODE_DEFAULTS: Record<
   frame: { width: 480, height: 320 },
   image: { width: 280, height: 200 },
   link: { width: 320, height: 140 },
+  drawing: { width: 120, height: 120 },
 };
+
+// Throttle "node_edited" emits per (actor, node) so rapid typing collapses to
+// one feed entry. Map<`${actorId}|${nodeId}`, lastEmitMs>.
+const EDIT_DEBOUNCE_MS = 5000;
+const lastEditEmit = new Map<string, number>();
 
 const seedNodes: CanvasNode[] = [
   {
@@ -178,6 +216,59 @@ const seedNodes: CanvasNode[] = [
 
 const seedConnections: Connection[] = [];
 
+type ActivityInput = {
+  kind: ActivityKind;
+  targetNodeId?: string;
+  targetLabel?: string;
+  targetNodeKind?: NodeKind;
+};
+
+function nodeLabel(node: CanvasNode | undefined): string | undefined {
+  if (!node) return undefined;
+  const title = (node.title ?? "").trim();
+  if (title) return title.slice(0, 80);
+  const body = (node.body ?? "").trim();
+  if (body) return body.slice(0, 80);
+  return undefined;
+}
+
+function pruneActivities(
+  map: Record<string, ActivityEvent>,
+): Record<string, ActivityEvent> {
+  const entries = Object.values(map);
+  if (entries.length <= ACTIVITY_CAP) return map;
+  entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const keep = entries.slice(entries.length - ACTIVITY_CAP);
+  return Object.fromEntries(keep.map((e) => [e.id, e]));
+}
+
+// Build a new activities map by appending an event attributed to currentActor.
+// Returns the unchanged map when there's no actor (e.g. SSR or before
+// useRealtime has run) or when readOnly viewers somehow reach an emit site.
+function appendActivity(
+  state: { activities: Record<string, ActivityEvent>; currentActor: ActivityActor | null; readOnly: boolean; nodes: Record<string, CanvasNode> },
+  input: ActivityInput,
+): Record<string, ActivityEvent> {
+  if (state.readOnly) return state.activities;
+  const actor = state.currentActor;
+  if (!actor) return state.activities;
+  const id = nextId("a");
+  const ev: ActivityEvent = {
+    id,
+    kind: input.kind,
+    actorId: actor.id,
+    actorName: actor.name,
+    actorColor: actor.color,
+    targetNodeId: input.targetNodeId,
+    targetLabel:
+      input.targetLabel ??
+      (input.targetNodeId ? nodeLabel(state.nodes[input.targetNodeId]) : undefined),
+    targetNodeKind: input.targetNodeKind,
+    createdAt: new Date().toISOString(),
+  };
+  return pruneActivities({ ...state.activities, [id]: ev });
+}
+
 function rectIntersectsNode(
   rect: { x: number; y: number; width: number; height: number },
   node: CanvasNode,
@@ -196,6 +287,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: Object.fromEntries(seedNodes.map((n) => [n.id, n])),
   connections: Object.fromEntries(seedConnections.map((c) => [c.id, c])),
   threads: {},
+  activities: {},
   selectedNodeIds: [],
   selectedConnectionId: null,
   pendingConnection: null,
@@ -203,15 +295,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeTool: "select",
   shortcutsOpen: false,
   commandPaletteOpen: false,
+  activityPanelOpen: false,
   openThreadNodeId: null,
   readOnly: false,
   contextMenu: { visible: false },
+  currentActor: null,
 
   hydrate: ({
     workspaceId,
     nodes,
     connections,
     threads = [],
+    activities = [],
     readOnly = false,
   }) =>
     set({
@@ -219,6 +314,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       nodes: Object.fromEntries(nodes.map((n) => [n.id, n])),
       connections: Object.fromEntries(connections.map((c) => [c.id, c])),
       threads: Object.fromEntries(threads.map((t) => [t.id, t])),
+      activities: Object.fromEntries(activities.map((a) => [a.id, a])),
       selectedNodeIds: [],
       selectedConnectionId: null,
       pendingConnection: null,
@@ -228,6 +324,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       readOnly,
     }),
   setReadOnly: (readOnly) => set({ readOnly }),
+  setCurrentActor: (actor) => set({ currentActor: actor }),
+  replaceActivities: (activities) => set({ activities }),
+  toggleActivityPanel: () =>
+    set((state) => ({ activityPanelOpen: !state.activityPanelOpen })),
+  setActivityPanelOpen: (open) => set({ activityPanelOpen: open }),
   openContextMenu: (screenX, screenY, variant) =>
     set({ contextMenu: { visible: true, screenX, screenY, variant } }),
   closeContextMenu: () => set({ contextMenu: { visible: false } }),
@@ -321,6 +422,63 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       nodes: { ...state.nodes, [id]: node },
       selectedNodeIds: [id],
       selectedConnectionId: null,
+      activities: appendActivity(state, {
+        kind: "node_created",
+        targetNodeId: id,
+        targetNodeKind: kind,
+      }),
+    }));
+    return id;
+  },
+
+  createDrawingNode: (worldPoints, strokeColor, strokeWidth) => {
+    if (get().readOnly) return null;
+    if (worldPoints.length < 4) return null;
+    // Compute bounding box, pad by stroke width so the stroke isn't clipped.
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (let i = 0; i < worldPoints.length; i += 2) {
+      const px = worldPoints[i];
+      const py = worldPoints[i + 1];
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+    const pad = strokeWidth + 2;
+    const x = minX - pad;
+    const y = minY - pad;
+    const width = Math.max(maxX - minX + pad * 2, strokeWidth * 2);
+    const height = Math.max(maxY - minY + pad * 2, strokeWidth * 2);
+    // Convert to node-local coords.
+    const local: number[] = new Array(worldPoints.length);
+    for (let i = 0; i < worldPoints.length; i += 2) {
+      local[i] = worldPoints[i] - x;
+      local[i + 1] = worldPoints[i + 1] - y;
+    }
+    const id = nextId("n");
+    const node: CanvasNode = {
+      id,
+      kind: "drawing",
+      x,
+      y,
+      width,
+      height,
+      points: local,
+      strokeColor,
+      strokeWidth,
+    };
+    set((state) => ({
+      nodes: { ...state.nodes, [id]: node },
+      selectedNodeIds: [id],
+      selectedConnectionId: null,
+      activities: appendActivity(state, {
+        kind: "node_created",
+        targetNodeId: id,
+        targetNodeKind: "drawing",
+      }),
     }));
     return id;
   },
@@ -359,7 +517,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (next.title === existing.title && next.body === existing.body) {
         return state;
       }
-      return { nodes: { ...state.nodes, [id]: next } };
+      // Debounce edit activities per (actor, node) so a typing session
+      // produces one feed entry, not one per keystroke.
+      const actorId = state.currentActor?.id ?? "anon";
+      const key = `${actorId}|${id}`;
+      const now = Date.now();
+      const last = lastEditEmit.get(key) ?? 0;
+      let activities = state.activities;
+      if (now - last >= EDIT_DEBOUNCE_MS) {
+        lastEditEmit.set(key, now);
+        activities = appendActivity(
+          { ...state, nodes: { ...state.nodes, [id]: next } },
+          {
+            kind: "node_edited",
+            targetNodeId: id,
+            targetNodeKind: existing.kind,
+          },
+        );
+      }
+      return { nodes: { ...state.nodes, [id]: next }, activities };
     }),
 
   setNodeColor: (id, color) =>
@@ -415,6 +591,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       threads: { ...state.threads, [id]: thread },
       openThreadNodeId: nodeId,
+      activities: appendActivity(state, {
+        kind: "thread_message_added",
+        targetNodeId: nodeId,
+        targetNodeKind: state.nodes[nodeId]?.kind,
+      }),
     });
     return id;
   },
@@ -440,6 +621,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           updatedAt: now,
         },
       },
+      activities: appendActivity(state, {
+        kind: "thread_message_added",
+        targetNodeId: thread.nodeId,
+        targetNodeKind: state.nodes[thread.nodeId]?.kind,
+      }),
     });
     return msg.id;
   },
@@ -458,6 +644,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             updatedAt: new Date().toISOString(),
           },
         },
+        activities: resolved
+          ? appendActivity(state, {
+              kind: "thread_resolved",
+              targetNodeId: thread.nodeId,
+              targetNodeKind: state.nodes[thread.nodeId]?.kind,
+            })
+          : state.activities,
       };
     }),
 
@@ -478,6 +671,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   removeNode: (id) =>
     set((state) => {
       if (state.readOnly) return state;
+      const removed = state.nodes[id];
       const { [id]: _, ...restNodes } = state.nodes;
       const restConnections = Object.fromEntries(
         Object.entries(state.connections).filter(
@@ -487,10 +681,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const restThreads = Object.fromEntries(
         Object.entries(state.threads).filter(([, t]) => t.nodeId !== id),
       );
+      const activities = removed
+        ? appendActivity(state, {
+            kind: "node_deleted",
+            targetNodeId: id,
+            targetNodeKind: removed.kind,
+            targetLabel: nodeLabel(removed),
+          })
+        : state.activities;
       return {
         nodes: restNodes,
         connections: restConnections,
         threads: restThreads,
+        activities,
         selectedNodeIds: state.selectedNodeIds.filter((sid) => sid !== id),
         openThreadNodeId:
           state.openThreadNodeId === id ? null : state.openThreadNodeId,
@@ -516,10 +719,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       for (const [k, t] of Object.entries(state.threads)) {
         if (!drop.has(t.nodeId)) restThreads[k] = t;
       }
+      // Emit one delete event per removed node so the feed reads as a list
+      // of distinct deletions rather than a single batch entry.
+      let activities = state.activities;
+      let working = state;
+      for (const id of ids) {
+        const removed = state.nodes[id];
+        if (!removed) continue;
+        activities = appendActivity(working, {
+          kind: "node_deleted",
+          targetNodeId: id,
+          targetNodeKind: removed.kind,
+          targetLabel: nodeLabel(removed),
+        });
+        working = { ...working, activities };
+      }
       return {
         nodes: restNodes,
         connections: restConnections,
         threads: restThreads,
+        activities,
         selectedNodeIds: state.selectedNodeIds.filter((id) => !drop.has(id)),
         openThreadNodeId:
           state.openThreadNodeId && drop.has(state.openThreadNodeId)

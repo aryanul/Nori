@@ -4,7 +4,13 @@ export type Viewport = {
   scale: number;
 };
 
-export type NodeKind = "card" | "sticky" | "frame" | "image" | "link";
+export type NodeKind =
+  | "card"
+  | "sticky"
+  | "frame"
+  | "image"
+  | "link"
+  | "drawing";
 
 export type CanvasNode = {
   id: string;
@@ -26,6 +32,12 @@ export type CanvasNode = {
   ogDescription?: string;
   ogImage?: string;
   ogSite?: string;
+
+  // Drawing nodes — points are flat [x0,y0,x1,y1,...] in node-local space
+  // (so the stroke pans/scales with the node's bounding box).
+  points?: number[];
+  strokeColor?: string;
+  strokeWidth?: number;
 };
 
 export type Connection = {
@@ -53,4 +65,28 @@ export type NodeThread = {
   /** ISO timestamps. */
   createdAt: string;
   updatedAt: string;
+};
+
+export type ActivityKind =
+  | "node_created"
+  | "node_deleted"
+  | "node_edited"
+  | "thread_message_added"
+  | "thread_resolved";
+
+export type ActivityEvent = {
+  id: string;
+  kind: ActivityKind;
+  actorId: string;
+  actorName: string;
+  actorColor: string;
+  /** Optional — set for any event tied to a specific node. */
+  targetNodeId?: string;
+  /** Snapshot of the node's title (or body if no title) at event time, so the
+   *  feed reads coherently even after the node is deleted. */
+  targetLabel?: string;
+  /** Type of node the event was about, for richer feed copy ("created a card"). */
+  targetNodeKind?: NodeKind;
+  /** ISO timestamp. */
+  createdAt: string;
 };

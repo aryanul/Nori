@@ -130,6 +130,26 @@ const TOOLS: Array<{
       </svg>
     ),
   },
+  {
+    id: "draw",
+    label: "Draw",
+    shortcut: "D",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 19l7-7a2.83 2.83 0 0 0-4-4l-7 7v4z" />
+        <path d="M14 6l4 4" />
+      </svg>
+    ),
+  },
 ];
 
 export function ToolPalette() {
@@ -146,18 +166,23 @@ export function ToolPalette() {
             type="button"
             onClick={() => setActiveTool(t.id)}
             title={`${t.label} (${t.shortcut})`}
+            aria-label={t.label}
             className={cn(
               "group relative flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] transition-colors",
+              // Touch-friendly: bump min hit area on coarse pointers.
+              "pointer-coarse:min-h-[44px] pointer-coarse:min-w-[44px] pointer-coarse:justify-center",
               active
                 ? "bg-sky-100 text-sky-900 shadow-[inset_0_0_0_1px_rgb(125,211,252)] dark:bg-[#7ad7ff]/[0.14] dark:text-[var(--ink-1)] dark:shadow-[inset_0_0_0_1px_rgba(122,215,255,0.35)]"
                 : "text-[var(--ink-3)] hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]",
             )}
           >
             {t.icon}
-            <span>{t.label}</span>
+            {/* Label hidden on narrow viewports / coarse pointers to keep
+                the palette one-row and tappable. */}
+            <span className="hidden sm:inline pointer-coarse:sm:hidden">{t.label}</span>
             <span
               className={cn(
-                "ml-1 rounded-[5px] border border-[var(--border-faint)] px-1 py-[1px] font-mono text-[9px] leading-none",
+                "ml-1 hidden rounded-[5px] border border-[var(--border-faint)] px-1 py-[1px] font-mono text-[9px] leading-none sm:inline pointer-coarse:sm:hidden",
                 active ? "border-[#7ad7ff]/30 text-[var(--ink-2)]" : "text-[var(--ink-4)]",
               )}
             >

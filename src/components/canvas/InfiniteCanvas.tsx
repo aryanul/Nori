@@ -21,7 +21,28 @@ type Props = {
   worldRef?: React.RefObject<HTMLDivElement | null>;
 };
 
-type DragMode = null | "pan" | "rect";
+type DragMode = null | "pan" | "rect" | "draw" | "pinch";
+
+const DRAW_STROKE_COLOR = "#7ad7ff";
+const DRAW_STROKE_WIDTH = 3;
+
+// Build a smoothed SVG path from a flat [x0,y0,x1,y1,...] points array.
+// Uses midpoint quadratic curves — each anchor sits between two raw points,
+// producing a soft, freehand-looking stroke without a library.
+export function buildSmoothPath(points: number[]): string {
+  const len = points.length;
+  if (len < 2) return "";
+  if (len === 2) return `M ${points[0]} ${points[1]}`;
+  let d = `M ${points[0]} ${points[1]}`;
+  if (len === 4) return `${d} L ${points[2]} ${points[3]}`;
+  for (let i = 2; i < len - 2; i += 2) {
+    const mx = (points[i] + points[i + 2]) / 2;
+    const my = (points[i + 1] + points[i + 3]) / 2;
+    d += ` Q ${points[i]} ${points[i + 1]}, ${mx} ${my}`;
+  }
+  d += ` L ${points[len - 2]} ${points[len - 1]}`;
+  return d;
+}
 
 export function InfiniteCanvas({
   onCursorMove,
@@ -36,6 +57,7 @@ export function InfiniteCanvas({
   const activeTool = useCanvasStore((s) => s.activeTool);
   const setActiveTool = useCanvasStore((s) => s.setActiveTool);
   const createNode = useCanvasStore((s) => s.createNode);
+  const createDrawingNode = useCanvasStore((s) => s.createDrawingNode);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const selectedNodeIds = useCanvasStore((s) => s.selectedNodeIds);
   const selectedConnectionId = useCanvasStore((s) => s.selectedConnectionId);
@@ -53,6 +75,21 @@ export function InfiniteCanvas({
   const rectStart = useRef<{ wx: number; wy: number; additive: boolean } | null>(
     null,
   );
+  // Multi-pointer tracking — keyed by pointerId. We watch for the second
+  // pointer landing on the canvas to enter pinch mode for touch zoom + pan.
+  const activePointers = useRef<Map<number, { clientX: number; clientY: number }>>(
+    new Map(),
+  );
+  const pinchState = useRef<{
+    startDist: number;
+    startMid: { x: number; y: number };
+    lastMid: { x: number; y: number };
+    lastScaleFactor: number;
+  } | null>(null);
+  // In-progress freehand stroke. Buffered in world coords; rendered as an
+  // overlay path until pointerup commits it as a drawing node.
+  const drawPoints = useRef<number[]>([]);
+  const [drawPath, setDrawPath] = useState<string>("");
   // Latest cursor position in world coords — used by the clipboard paste
   // handler so a pasted image lands where the cursor is hovering.
   const lastMouseWorld = useRef<{ wx: number; wy: number }>({ wx: 0, wy: 0 });
@@ -77,16 +114,63 @@ export function InfiniteCanvas({
     window.getSelection()?.removeAllRanges();
   };
 
+  const enterPinchMode = () => {
+    const pts = Array.from(activePointers.current.values());
+    if (pts.length < 2) return;
+    const [a, b] = pts;
+    const dx = b.clientX - a.clientX;
+    const dy = b.clientY - a.clientY;
+    const dist = Math.hypot(dx, dy) || 1;
+    const mid = {
+      x: (a.clientX + b.clientX) / 2,
+      y: (a.clientY + b.clientY) / 2,
+    };
+    pinchState.current = {
+      startDist: dist,
+      startMid: mid,
+      lastMid: mid,
+      lastScaleFactor: 1,
+    };
+    dragMode.current = "pinch";
+    // Cancel any in-flight gesture from the first pointer.
+    setSelectionRect(null);
+    rectStart.current = null;
+    lastPoint.current = null;
+    setIsPanning(false);
+    drawPoints.current = [];
+    setDrawPath("");
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
+
+    // Track every active pointer on the canvas so we can detect pinch.
+    activePointers.current.set(e.pointerId, {
+      clientX: e.clientX,
+      clientY: e.clientY,
+    });
+    if (activePointers.current.size >= 2) {
+      enterPinchMode();
+      return;
+    }
+
     dropTextSelection();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
 
     // Tool-specific behavior when clicking empty canvas:
+    //   - draw: start freehand capture.
     //   - card / sticky / frame / image / link: create that node here.
     //   - select + shift: start a rectangle select.
     //   - select (no modifier): pan.
-    if (activeTool !== "select" && !readOnly) {
+    if (activeTool === "draw" && !readOnly) {
+      const { wx, wy } = screenToWorld(e.clientX, e.clientY);
+      drawPoints.current = [wx, wy];
+      setDrawPath(buildSmoothPath(drawPoints.current));
+      dragMode.current = "draw";
+      return;
+    }
+
+    if (activeTool !== "select" && activeTool !== "draw" && !readOnly) {
       const { wx, wy } = screenToWorld(e.clientX, e.clientY);
       createNode(wx, wy, activeTool);
       setActiveTool("select");
@@ -108,11 +192,44 @@ export function InfiniteCanvas({
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointers.current.has(e.pointerId)) {
+      activePointers.current.set(e.pointerId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+    }
     const wp = screenToWorld(e.clientX, e.clientY);
     lastMouseWorld.current = wp;
     if (onCursorMove) {
       onCursorMove(wp.wx, wp.wy);
     }
+
+    if (dragMode.current === "pinch" && pinchState.current) {
+      const pts = Array.from(activePointers.current.values());
+      if (pts.length < 2) return;
+      const [a, b] = pts;
+      const dx = b.clientX - a.clientX;
+      const dy = b.clientY - a.clientY;
+      const dist = Math.hypot(dx, dy) || 1;
+      const mid = {
+        x: (a.clientX + b.clientX) / 2,
+        y: (a.clientY + b.clientY) / 2,
+      };
+      const targetFactor = dist / pinchState.current.startDist;
+      const stepFactor = targetFactor / pinchState.current.lastScaleFactor;
+      pinchState.current.lastScaleFactor = targetFactor;
+      // Zoom around the midpoint (in container-local coords).
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        zoomAt(stepFactor, mid.x - rect.left, mid.y - rect.top);
+      }
+      const panDx = mid.x - pinchState.current.lastMid.x;
+      const panDy = mid.y - pinchState.current.lastMid.y;
+      pinchState.current.lastMid = mid;
+      if (panDx !== 0 || panDy !== 0) panBy(panDx, panDy);
+      return;
+    }
+
     if (dragMode.current === "pan" && lastPoint.current) {
       const dx = e.clientX - lastPoint.current.x;
       const dy = e.clientY - lastPoint.current.y;
@@ -125,6 +242,14 @@ export function InfiniteCanvas({
         endX: wp.wx,
         endY: wp.wy,
       });
+    } else if (dragMode.current === "draw") {
+      const last = drawPoints.current;
+      const lx = last[last.length - 2];
+      const ly = last[last.length - 1];
+      // Skip tiny moves so we don't bloat the points array.
+      if (Math.hypot(wp.wx - lx, wp.wy - ly) < 1.5 / viewport.scale) return;
+      last.push(wp.wx, wp.wy);
+      setDrawPath(buildSmoothPath(last));
     }
   };
 
@@ -134,8 +259,26 @@ export function InfiniteCanvas({
     } catch {
       // ignore
     }
+    activePointers.current.delete(e.pointerId);
+    if (dragMode.current === "pinch") {
+      // Stay in pinch until both fingers leave; otherwise switching back to
+      // single-touch mid-gesture is jarring.
+      if (activePointers.current.size < 2) {
+        pinchState.current = null;
+        dragMode.current = null;
+      }
+      return;
+    }
     if (dragMode.current === "rect" && rectStart.current) {
       commitSelectionRect(rectStart.current.additive);
+    } else if (dragMode.current === "draw") {
+      const pts = drawPoints.current;
+      if (pts.length >= 4) {
+        createDrawingNode(pts, DRAW_STROKE_COLOR, DRAW_STROKE_WIDTH);
+      }
+      drawPoints.current = [];
+      setDrawPath("");
+      setActiveTool("select");
     }
     dragMode.current = null;
     lastPoint.current = null;
@@ -157,8 +300,10 @@ export function InfiniteCanvas({
     dropTextSelection();
     const { wx, wy } = screenToWorld(e.clientX, e.clientY);
     // Double-click always creates whatever the active tool is, defaulting
-    // to a card if we're in select mode.
-    createNode(wx, wy, activeTool === "select" ? "card" : activeTool);
+    // to a card if we're in select or draw mode (no double-click stroke).
+    const kind =
+      activeTool === "select" || activeTool === "draw" ? "card" : activeTool;
+    createNode(wx, wy, kind);
     if (activeTool !== "select") setActiveTool("select");
   };
 
@@ -270,12 +415,17 @@ export function InfiniteCanvas({
   const frameNodes = allNodes.filter((n) => n.kind === "frame");
   const nonFrameNodes = allNodes.filter((n) => n.kind !== "frame");
 
-  const cursorClass =
-    activeTool !== "select"
+  const cursorClass = readOnly
+    ? isPanning
+      ? "cursor-grabbing"
+      : "cursor-grab"
+    : activeTool === "draw"
       ? "cursor-crosshair"
-      : isPanning
-        ? "cursor-grabbing"
-        : "cursor-grab";
+      : activeTool !== "select"
+        ? "cursor-crosshair"
+        : isPanning
+          ? "cursor-grabbing"
+          : "cursor-grab";
 
   return (
     <div
@@ -334,7 +484,42 @@ export function InfiniteCanvas({
         <NodeInspector />
         <ThreadPanel self={self} />
         <RemoteCursors peers={peers} />
+
+        {/* In-progress freehand stroke. Renders inside the world wrapper so
+            it scales with viewport. Pointer-events off so it never blocks
+            the active gesture on the canvas underneath. */}
+        {drawPath && (
+          <svg
+            className="pointer-events-none absolute"
+            style={{
+              left: -50000,
+              top: -50000,
+              width: 100000,
+              height: 100000,
+              overflow: "visible",
+            }}
+            viewBox="-50000 -50000 100000 100000"
+          >
+            <path
+              d={drawPath}
+              stroke={DRAW_STROKE_COLOR}
+              strokeWidth={DRAW_STROKE_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </div>
+
+      {/* View-only ambient indicator — a faint top edge strip so the viewport
+          itself signals "you can't edit here", not just the toolbar badge. */}
+      {readOnly && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[2px] bg-gradient-to-r from-transparent via-amber-400/45 to-transparent"
+        />
+      )}
     </div>
   );
 }

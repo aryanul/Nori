@@ -6,7 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useOsModifier } from "@/hooks/use-os-modifier";
 import { cn } from "@/lib/cn";
 
-const STORAGE_KEY = "nori:onboarded:v1";
+// v2 = per-workspace key. v1 was a single global flag (`nori:onboarded:v1`)
+// and is checked once on mount to migrate existing users without re-flashing
+// the generic tutorial.
+const GLOBAL_LEGACY_KEY = "nori:onboarded:v1";
+const storageKeyFor = (workspaceId: string) =>
+  `nori:onboarded:v2:${workspaceId}`;
 
 type Slide = {
   title: string;
@@ -15,7 +20,12 @@ type Slide = {
   kbd?: string[];
 };
 
-function buildSlides(mod: string): Slide[] {
+type Props = {
+  workspaceId: string;
+  templateId?: string | null;
+};
+
+function genericSlides(mod: string): Slide[] {
   return [
     {
       title: "Welcome to the canvas",
@@ -60,10 +70,10 @@ function buildSlides(mod: string): Slide[] {
     },
     {
       title: "Create things fast",
-      body: "Double-click empty space to drop a card. Press V/C/S/F/I/L to switch tools, or paste an image or URL straight onto the canvas.",
+      body: "Double-click empty space to drop a card. Press V/C/S/F/I/L/D to switch tools, or paste an image or URL straight onto the canvas.",
       illustration: (
         <div className="flex items-center justify-center gap-1.5 py-4">
-          {["V", "C", "S", "F", "I", "L"].map((k) => (
+          {["V", "C", "S", "F", "I", "L", "D"].map((k) => (
             <kbd
               key={k}
               className="rounded-md border border-[var(--border-default)] bg-[var(--pane-2)] px-2 py-1.5 font-mono text-xs text-[var(--ink-1)]"
@@ -120,9 +130,49 @@ function buildSlides(mod: string): Slide[] {
   ];
 }
 
-export function FirstRunTutorial() {
+const TEMPLATE_SLIDES: Record<string, Slide> = {
+  brainstorm: {
+    title: "Group ideas with frames",
+    body: "Press F to drop a frame, then drag it over a cluster of stickies. The frame picks up everything inside — move them all at once.",
+    illustration: (
+      <div className="flex items-center justify-center py-4">
+        <div className="relative h-20 w-44 rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--pane-1)]">
+          <span className="absolute left-3 top-2 size-5 rounded-sm bg-amber-300/80 shadow-sm" />
+          <span className="absolute left-12 top-7 size-5 rounded-sm bg-pink-300/80 shadow-sm" />
+          <span className="absolute left-24 top-4 size-5 rounded-sm bg-sky-300/80 shadow-sm" />
+        </div>
+      </div>
+    ),
+  },
+  roadmap: {
+    title: "Connect cards into flows",
+    body: "Hover the right edge of a card — a small dot appears. Drag it onto another card to draw a connection.",
+    illustration: (
+      <div className="flex items-center justify-center gap-2 py-4">
+        <span className="size-8 rounded-md border border-[var(--border-default)] bg-[var(--pane-2)]" />
+        <svg width="40" height="14" viewBox="0 0 40 14" fill="none">
+          <path
+            d="M 2 7 H 36"
+            stroke="rgba(122,215,255,0.7)"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M 30 2 L 38 7 L 30 12"
+            stroke="rgba(122,215,255,0.7)"
+            strokeWidth="1.5"
+            fill="none"
+          />
+        </svg>
+        <span className="size-8 rounded-md border border-[var(--border-default)] bg-[var(--pane-2)]" />
+      </div>
+    ),
+  },
+};
+
+export function FirstRunTutorial({ workspaceId, templateId }: Props) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
+  const [skipGeneric, setSkipGeneric] = useState(false);
   const [idx, setIdx] = useState(0);
   const mod = useOsModifier();
 
@@ -130,26 +180,49 @@ export function FirstRunTutorial() {
     setMounted(true);
     if (typeof window === "undefined") return;
     try {
-      const flag = window.localStorage.getItem(STORAGE_KEY);
-      if (!flag) setOpen(true);
+      // Per-workspace flag — if set, never show again here.
+      if (window.localStorage.getItem(storageKeyFor(workspaceId))) return;
+      // Migration: an existing user with the old global flag has already seen
+      // the generic intro. Skip the generic slides but still show any
+      // template-specific tip the new workspace might have.
+      const wasOnboardedGlobally =
+        !!window.localStorage.getItem(GLOBAL_LEGACY_KEY);
+      setSkipGeneric(wasOnboardedGlobally);
+      setOpen(true);
+      setIdx(0);
     } catch {
       // localStorage disabled — don't show
     }
-  }, []);
+  }, [workspaceId]);
 
   const dismiss = () => {
     setOpen(false);
     try {
-      window.localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+      window.localStorage.setItem(
+        storageKeyFor(workspaceId),
+        new Date().toISOString(),
+      );
     } catch {
       // ignore
     }
   };
 
   if (!mounted) return null;
-  const slides = buildSlides(mod.symbol);
-  const slide = slides[idx];
-  const last = idx === slides.length - 1;
+
+  const slides: Slide[] = [];
+  if (!skipGeneric) slides.push(...genericSlides(mod.symbol));
+  const templateSlide =
+    templateId && templateId in TEMPLATE_SLIDES
+      ? TEMPLATE_SLIDES[templateId]
+      : null;
+  if (templateSlide) slides.push(templateSlide);
+
+  // Nothing to show (e.g. blank template + already-onboarded user).
+  if (slides.length === 0) return null;
+
+  const safeIdx = Math.min(idx, slides.length - 1);
+  const slide = slides[safeIdx];
+  const last = safeIdx === slides.length - 1;
 
   return createPortal(
     <AnimatePresence>
@@ -173,7 +246,7 @@ export function FirstRunTutorial() {
 
             <div className="border-b border-[var(--border-faint)] bg-gradient-to-b from-[var(--pane-1)] to-transparent px-6 pt-6 pb-3">
               <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--ink-4)]">
-                Welcome to Nori
+                {skipGeneric ? "Template tip" : "Welcome to Nori"}
               </p>
             </div>
 
@@ -196,16 +269,18 @@ export function FirstRunTutorial() {
                     key={i}
                     className={cn(
                       "h-1 rounded-full transition-all",
-                      i === idx ? "w-5 bg-[var(--ink-1)]" : "w-1.5 bg-[var(--ink-4)]",
+                      i === safeIdx
+                        ? "w-5 bg-[var(--ink-1)]"
+                        : "w-1.5 bg-[var(--ink-4)]",
                     )}
                   />
                 ))}
               </div>
               <div className="flex items-center gap-1.5">
-                {idx > 0 && (
+                {safeIdx > 0 && (
                   <button
                     type="button"
-                    onClick={() => setIdx(idx - 1)}
+                    onClick={() => setIdx(safeIdx - 1)}
                     className="rounded-lg px-3 py-1.5 text-xs text-[var(--ink-3)] transition-colors hover:bg-[var(--pane-2)] hover:text-[var(--ink-1)]"
                   >
                     Back
@@ -222,7 +297,7 @@ export function FirstRunTutorial() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setIdx(idx + 1)}
+                    onClick={() => setIdx(safeIdx + 1)}
                     className="rounded-lg border border-[var(--border-default)] bg-[var(--pane-2)] px-3.5 py-1.5 text-xs font-medium text-[var(--ink-1)] transition-colors hover:bg-[var(--pane-3)]"
                   >
                     Next

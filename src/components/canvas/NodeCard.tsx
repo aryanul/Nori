@@ -6,6 +6,7 @@ import { useCanvasStore } from "@/store/canvas-store";
 import type { CanvasNode } from "@/types/canvas";
 import { fetchOgPreview } from "@/lib/actions/og";
 import { cn } from "@/lib/cn";
+import { buildSmoothPath } from "./InfiniteCanvas";
 
 type Props = { node: CanvasNode };
 
@@ -175,6 +176,7 @@ export function NodeCard({ node }: Props) {
   const isFrame = kind === "frame";
   const isImage = kind === "image";
   const isLink = kind === "link";
+  const isDrawing = kind === "drawing";
 
   // Map node.color to inline border/bg overrides. Frames + sticky have their
   // own default surface treatments below; for those we apply color as a tint
@@ -201,17 +203,25 @@ export function NodeCard({ node }: Props) {
         isSticky
           ? "rounded-[14px] border border-amber-400/25 shadow-[0_14px_30px_-12px_rgba(0,0,0,0.45)]"
           : isFrame
-            ? "rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--pane-1)] shadow-none hover:bg-[var(--pane-2)]"
+            ? cn(
+                "rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--pane-1)] shadow-none",
+                !readOnly && "hover:bg-[var(--pane-2)]",
+              )
             : isImage
               ? "rounded-xl border border-[var(--node-card-border)] bg-[var(--node-card-bg)] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.45)]"
               : isLink
                 ? "rounded-xl border border-[var(--node-card-border)] bg-[var(--node-card-bg)] text-[var(--ink-1)] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.45)] backdrop-blur-[6px]"
-                : // card
-                  "rounded-xl border border-[var(--node-card-border)] bg-[var(--node-card-bg)] text-[var(--ink-1)] shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)]",
-        // Cursor
-        dragging
-          ? "cursor-grabbing shadow-[0_18px_50px_-12px_rgba(0,0,0,0.55)]"
-          : "cursor-grab backdrop-blur-[6px] hover:border-[var(--node-card-border-hover)]",
+                : isDrawing
+                  ? "rounded-md border border-transparent bg-transparent shadow-none"
+                  : // card
+                    "rounded-xl border border-[var(--node-card-border)] bg-[var(--node-card-bg)] text-[var(--ink-1)] shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)]",
+        // Cursor — viewers never drag, so show pointer instead of grab and
+        // suppress the hover-lift affordance.
+        readOnly
+          ? "cursor-pointer"
+          : dragging
+            ? "cursor-grabbing shadow-[0_18px_50px_-12px_rgba(0,0,0,0.55)]"
+            : "cursor-grab backdrop-blur-[6px] hover:border-[var(--node-card-border-hover)]",
         // Selection
         isSelected &&
           "!border-[#7ad7ff]/70 shadow-[0_0_0_1px_rgba(122,215,255,0.55),0_18px_55px_-12px_rgba(122,215,255,0.30)]",
@@ -230,10 +240,12 @@ export function NodeCard({ node }: Props) {
           : {}),
       }}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent"
-      />
+      {!isDrawing && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[var(--highlight)] to-transparent"
+        />
+      )}
 
       {isFrame ? (
         <FrameNodeContent node={node} />
@@ -243,11 +255,13 @@ export function NodeCard({ node }: Props) {
         <ImageNodeContent node={node} />
       ) : isLink ? (
         <LinkNodeContent node={node} />
+      ) : isDrawing ? (
+        <DrawingNodeContent node={node} />
       ) : (
         <CardNodeContent node={node} />
       )}
 
-      {!isFrame && !readOnly && (
+      {!isFrame && !isDrawing && !readOnly && (
         <div
           data-export-skip
           onPointerDown={onHandlePointerDown}
@@ -288,6 +302,30 @@ function CardNodeContent({ node }: { node: CanvasNode }) {
         className="w-full flex-1 cursor-text select-text resize-none border-none bg-transparent text-xs leading-relaxed text-[var(--ink-2)] outline-none placeholder:text-[var(--ink-4)]"
       />
     </div>
+  );
+}
+
+function DrawingNodeContent({ node }: { node: CanvasNode }) {
+  const points = node.points ?? [];
+  if (points.length < 2) return null;
+  const stroke = node.strokeColor ?? "#7ad7ff";
+  const width = node.strokeWidth ?? 3;
+  return (
+    <svg
+      width={node.width}
+      height={node.height}
+      viewBox={`0 0 ${node.width} ${node.height}`}
+      className="pointer-events-none absolute inset-0 overflow-visible"
+    >
+      <path
+        d={buildSmoothPath(points)}
+        stroke={stroke}
+        strokeWidth={width}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
