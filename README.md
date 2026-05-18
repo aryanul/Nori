@@ -34,6 +34,14 @@ It's built to **stay out of your way**. No sidebars full of tools you'll never u
 <br/>
 
 <div align="center">
+<img src="empty-canvas.png" alt="Empty workspace" width="820" />
+<br/>
+<sub><i>An empty workspace — just the canvas, a header, and a floating tool palette. Double-click anywhere to start.</i></sub>
+</div>
+
+<br/>
+
+<div align="center">
 <img src="frame-connected.png" alt="Frame with connected nodes" width="720" />
 <br/>
 <sub><i>A frame grouping ideas, with arrows showing the flow between them.</i></sub>
@@ -84,6 +92,58 @@ It's built to **stay out of your way**. No sidebars full of tools you'll never u
 
 ---
 
+## 🧩 Primitives
+
+The vocabulary you'll work with on the canvas.
+
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="card-closeup.png" alt="Card close-up" />
+<br/>
+<sub><b>Card</b> — soft glass border with a glowing logo image. Title + body + anything you paste in.</sub>
+</td>
+<td width="50%" align="center">
+<img src="frame-card-content.png" alt="Cards inside a frame" />
+<br/>
+<sub><b>Cards in a frame</b> — typed content stays clean against the dotted background.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="frame-with-cards.png" alt="Frame grouping cards" />
+<br/>
+<sub><b>Frame</b> — a dashed region groups its children; drag it and everything moves together.</sub>
+</td>
+<td width="50%" align="center">
+<img src="empty-frame.png" alt="Empty frame" />
+<br/>
+<sub><b>Empty frame</b> — a region waiting to be filled.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="node-selected.png" alt="Selected node" />
+<br/>
+<sub><b>Selection</b> — selected nodes get a cyan halo and handles.</sub>
+</td>
+<td width="50%" align="center">
+<img src="frame-with-logo.png" alt="Frame containing an image" />
+<br/>
+<sub><b>Images</b> — paste a screenshot or drop a file; it lands as a node like anything else.</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center">
+<img src="hero-card-logo.png" alt="Card with branded image" width="380" />
+<br/>
+<sub><b>Mixing primitives</b> — image nodes and cards live side by side, all on the same canvas.</sub>
+</td>
+</tr>
+</table>
+
+---
+
 ## 🖼️ A closer look
 
 <table>
@@ -106,31 +166,38 @@ It's built to **stay out of your way**. No sidebars full of tools you'll never u
 <sub><b>Roadmap template</b> — Backlog · In progress · Shipped, ready to fill in.</sub>
 </td>
 <td width="50%" align="center">
-<img src="template-tip-frame.png" alt="Template tip" />
+<img src="template-tip-frame.png" alt="Template tip — frames" />
 <br/>
 <sub><b>Contextual tips</b> — template-aware nudges on first visit.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" align="center">
+<img src="template-tip-connect.png" alt="Template tip — connect" />
+<br/>
+<sub><b>Onboarding flow</b> — successive tips teach connections, frames, and stickies in context.</sub>
+</td>
+<td width="50%" align="center">
 <img src="share-modal.png" alt="Share modal" />
 <br/>
 <sub><b>Share</b> — edit-invite or view-only links, each with a regenerable token.</sub>
 </td>
+</tr>
+<tr>
 <td width="50%" align="center">
 <img src="activity-feed.png" alt="Activity feed" />
 <br/>
 <sub><b>Activity feed</b> — async catch-up on what changed and who did it.</sub>
 </td>
-</tr>
-<tr>
 <td width="50%" align="center">
 <img src="context-menu-export.png" alt="Right-click menu" />
 <br/>
 <sub><b>Right-click menu</b> — comment, export selection as PNG, delete.</sub>
 </td>
-<td width="50%" align="center">
-<img src="light-mode.png" alt="Light theme" />
+</tr>
+<tr>
+<td colspan="2" align="center">
+<img src="light-mode.png" alt="Light theme" width="640" />
 <br/>
 <sub><b>Light theme</b> — the same canvas, in daylight.</sub>
 </td>
@@ -261,6 +328,14 @@ Open [http://localhost:3000](http://localhost:3000) and sign in.
 | **Vercel** | Next.js app | Standard Next.js deploy. Set all `AUTH_*` + `MONGODB_URI` + `NEXT_PUBLIC_HOCUSPOCUS_URL` env vars. |
 | **Render** | Hocuspocus server | Web Service running `npm run hocuspocus`. Use the `wss://` URL from Render as `NEXT_PUBLIC_HOCUSPOCUS_URL`. |
 | **MongoDB Atlas** | Database | Allow Vercel + Render egress IPs (or `0.0.0.0/0` for the free tier). |
+
+On free-tier Render the Hocuspocus container sleeps when idle, so the first connection after a quiet period takes up to ~30s while the server wakes. Nori covers this with a polite overlay rather than a dead canvas:
+
+<div align="center">
+<img src="sync-overlay.png" alt="Sync overlay during cold start" width="720" />
+<br/>
+<sub><i>Cold-start overlay — elapsed timer included, edits queue until the socket is up.</i></sub>
+</div>
 
 For Google OAuth, add to **Authorized redirect URIs** in Google Cloud Console:
 ```
