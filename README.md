@@ -17,7 +17,7 @@ Drop cards, sketch ideas, group them in frames, connect them with lines, comment
 
 <br/>
 
-<img src="untitled-workspace-selection-2026051717385.png" alt="Nori workspace" width="640" />
+<img src="template-brainstorm.png" alt="Nori workspace" width="820" />
 
 </div>
 
@@ -34,7 +34,7 @@ It's built to **stay out of your way**. No sidebars full of tools you'll never u
 <br/>
 
 <div align="center">
-<img src="untitled-workspace-selection-2026051717375.png" alt="Frame with connected nodes" width="540" />
+<img src="frame-connected.png" alt="Frame with connected nodes" width="720" />
 <br/>
 <sub><i>A frame grouping ideas, with arrows showing the flow between them.</i></sub>
 </div>
@@ -89,26 +89,50 @@ It's built to **stay out of your way**. No sidebars full of tools you'll never u
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="untitled-workspace-selection-2026051716561.png" alt="Card close-up" />
+<img src="home.png" alt="Workspace dashboard" />
 <br/>
-<sub><b>Card</b> — soft glass border, focused on the content.</sub>
+<sub><b>Dashboard</b> — pick a template, jump into a recent workspace, or start blank.</sub>
 </td>
 <td width="50%" align="center">
-<img src="untitled-workspace-selection-2026051716555.png" alt="Frame with cards" />
+<img src="login-screen.png" alt="Sign in" />
 <br/>
-<sub><b>Frame</b> — dashed region grouping nodes that move together.</sub>
+<sub><b>Sign in</b> — email/password, Google, or GitHub (coming).</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" align="center">
-<img src="untitled-workspace-selection-2026051716382.png" alt="Empty frame" />
+<img src="template-roadmap.png" alt="Project roadmap template" />
 <br/>
-<sub><b>Empty frame</b> — a region waiting to be filled.</sub>
+<sub><b>Roadmap template</b> — Backlog · In progress · Shipped, ready to fill in.</sub>
 </td>
 <td width="50%" align="center">
-<img src="untitled-workspace-selection-2026051716441.png" alt="Selection state" />
+<img src="template-tip-frame.png" alt="Template tip" />
 <br/>
-<sub><b>Selection</b> — selected nodes get a cyan halo.</sub>
+<sub><b>Contextual tips</b> — template-aware nudges on first visit.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="share-modal.png" alt="Share modal" />
+<br/>
+<sub><b>Share</b> — edit-invite or view-only links, each with a regenerable token.</sub>
+</td>
+<td width="50%" align="center">
+<img src="activity-feed.png" alt="Activity feed" />
+<br/>
+<sub><b>Activity feed</b> — async catch-up on what changed and who did it.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="context-menu-export.png" alt="Right-click menu" />
+<br/>
+<sub><b>Right-click menu</b> — comment, export selection as PNG, delete.</sub>
+</td>
+<td width="50%" align="center">
+<img src="light-mode.png" alt="Light theme" />
+<br/>
+<sub><b>Light theme</b> — the same canvas, in daylight.</sub>
 </td>
 </tr>
 </table>
